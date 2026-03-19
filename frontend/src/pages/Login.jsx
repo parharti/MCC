@@ -17,7 +17,9 @@ export default function Login() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get('/districts').then(res => setDistricts(res.data.districts)).catch(() => {});
+    api.get('/districts').then(res => {
+      if (Array.isArray(res.data.districts)) setDistricts(res.data.districts);
+    }).catch(() => {});
   }, []);
 
   async function handleSubmit(e) {
@@ -33,7 +35,8 @@ export default function Login() {
       await login(role, role === 'district' ? districtId : null, password);
       navigate('/dashboard');
     } catch (err) {
-      setError(err.response?.data?.error || t.loginFailed);
+      const errMsg = err.response?.data?.error;
+      setError(typeof errMsg === 'string' ? errMsg : t.loginFailed);
     } finally {
       setSubmitting(false);
     }
