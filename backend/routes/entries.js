@@ -105,12 +105,20 @@ router.post('/', requireAdmin, async (req, res) => {
     }
 
     // Auto-generate complaint ID using a Firestore transaction to prevent race conditions
+    // Syncs counter with actual max sno in entries to handle drift from deletions
     const result = await db.runTransaction(async (t) => {
       const counterRef = db.collection('counters').doc('entries');
       const counterSnap = await t.get(counterRef);
-      let sno = counterSnap.exists ? counterSnap.data().count : 0;
+      const counterVal = counterSnap.exists ? counterSnap.data().count : 0;
 
-      sno++;
+      const allSnap = await t.get(db.collection('entries'));
+      let maxSno = 0;
+      allSnap.forEach(doc => {
+        const s = doc.data().sno || 0;
+        if (s > maxSno) maxSno = s;
+      });
+
+      let sno = Math.max(counterVal, maxSno) + 1;
       const complaintId = 'SM-' + String(sno).padStart(3, '0');
 
       const entryData = {
@@ -479,7 +487,16 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       const result = await db.runTransaction(async (t) => {
         const counterRef = db.collection('counters').doc('entries');
         const counterSnap = await t.get(counterRef);
-        let sno = counterSnap.exists ? counterSnap.data().count : 0;
+        const counterVal = counterSnap.exists ? counterSnap.data().count : 0;
+
+        const allSnap = await t.get(db.collection('entries'));
+        let maxSno = 0;
+        allSnap.forEach(doc => {
+          const s = doc.data().sno || 0;
+          if (s > maxSno) maxSno = s;
+        });
+
+        let sno = Math.max(counterVal, maxSno);
 
         const batchCreated = [];
         for (const entry of batch) {
@@ -509,6 +526,34 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
   }
 });
 
+// POST /api/entries/sync-counter - sync counter with actual max sno in entries (admin only)
+router.post('/sync-counter', requireAdmin, async (req, res) => {
+  try {
+    const snapshot = await db.collection('entries').get();
+    let maxSno = 0;
+    snapshot.forEach(doc => {
+      const s = doc.data().sno || 0;
+      if (s > maxSno) maxSno = s;
+    });
+
+    const counterRef = db.collection('counters').doc('entries');
+    const counterSnap = await counterRef.get();
+    const oldCount = counterSnap.exists ? counterSnap.data().count : 0;
+
+    await counterRef.set({ count: maxSno });
+
+    res.json({
+      message: 'Counter synced.',
+      previousCount: oldCount,
+      newCount: maxSno,
+      totalEntries: snapshot.size
+    });
+  } catch (err) {
+    console.error('Sync counter error:', err);
+    res.status(500).json({ error: 'Failed to sync counter.' });
+  }
+});
+
 // DELETE /api/entries/:id - delete entry (admin only)
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
@@ -521,6 +566,15 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     // Delete associated photos from storage
     await deleteEntryPhotos(id);
     await db.collection('entries').doc(id).delete();
+
+    // Sync counter with actual max sno after deletion
+    const remaining = await db.collection('entries').get();
+    let maxSno = 0;
+    remaining.forEach(d => {
+      const s = d.data().sno || 0;
+      if (s > maxSno) maxSno = s;
+    });
+    await db.collection('counters').doc('entries').set({ count: maxSno });
 
     res.json({ message: 'Entry deleted successfully.' });
   } catch (err) {
