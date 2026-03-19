@@ -14,6 +14,9 @@ export default function Sidebar() {
   const links = [
     { path: '/dashboard', label: t.dashboard },
     { path: '/entries', label: t.entries },
+    ...(user.role === 'admin' ? [
+      { path: '/report', label: t.report },
+    ] : []),
   ];
 
   return (

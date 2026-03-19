@@ -6,7 +6,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { uploadPhoto, deleteEntryPhotos } = require('../services/storageService');
 const XLSX = require('xlsx');
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 // GET /api/entries - get all entries (filtered by district for district users)
 router.get('/', requireAuth, async (req, res) => {
@@ -570,7 +570,7 @@ router.put('/:id/immediate-reply', requireAuth, async (req, res) => {
 });
 
 // PUT /api/entries/:id/final-reply - submit final reply with evidence (district only)
-router.put('/:id/final-reply', requireAuth, upload.array('photos', 10), async (req, res) => {
+router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (req, res) => {
   try {
     const { id } = req.params;
     const { finalReply } = req.body;

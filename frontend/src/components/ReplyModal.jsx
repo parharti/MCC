@@ -72,7 +72,7 @@ export default function ReplyModal({ entry, onClose, onSubmitted }) {
           {!isImmediate && (
             <div className="form-group">
               <label>{t.evidencePhotos} *</label>
-              <input type="file" multiple accept="image/*"
+              <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt"
                 onChange={e => setPhotos(Array.from(e.target.files))} />
               {photos.length > 0 && (
                 <p className="file-count">{photos.length} {t.filesSelected}</p>

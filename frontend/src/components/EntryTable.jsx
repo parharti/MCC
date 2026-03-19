@@ -173,10 +173,15 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
                 <td>
                   {entry.evidencePhotos && entry.evidencePhotos.length > 0 ? (
                     <div className="evidence-links">
-                      {entry.evidencePhotos.map((p, i) => (
-                        <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
-                          className="link">Photo {i + 1}</a>
-                      ))}
+                      {entry.evidencePhotos.map((p, i) => {
+                        const name = p.filename || `File ${i + 1}`;
+                        const ext = name.split('.').pop().toLowerCase();
+                        const isImg = ['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext);
+                        return (
+                          <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                            className="link">{isImg ? `Photo ${i + 1}` : name}</a>
+                        );
+                      })}
                     </div>
                   ) : '-'}
                 </td>

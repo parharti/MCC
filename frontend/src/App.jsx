@@ -3,7 +3,7 @@ import { useAuth } from './context/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Entries from './pages/Entries';
-import Reports from './pages/Reports';
+import DailyReport from './pages/DailyReport';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 
@@ -42,8 +42,8 @@ export default function App() {
             <Route path="/entries" element={
               <ProtectedRoute><Entries /></ProtectedRoute>
             } />
-            <Route path="/reports" element={
-              <ProtectedRoute adminOnly><Reports /></ProtectedRoute>
+            <Route path="/report" element={
+              <ProtectedRoute adminOnly><DailyReport /></ProtectedRoute>
             } />
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>

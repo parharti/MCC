@@ -107,8 +107,8 @@ const translations = {
     submitFinalReply: 'Submit Final Reply',
     replyPlaceholder: 'Enter your reply...',
     replyEmpty: 'Reply cannot be empty.',
-    evidencePhotos: 'Evidence Photos (min 1 required)',
-    photoRequired: 'At least one evidence photo is required for final reply.',
+    evidencePhotos: 'Evidence Files - Photos/Docs/PDF (min 1 required)',
+    photoRequired: 'At least one evidence file is required for final reply.',
     submitting: 'Submitting...',
     submitReply: 'Submit Reply',
     filesSelected: 'file(s) selected',
@@ -128,6 +128,7 @@ const translations = {
     noPhotos: 'No photos',
     districtOfficerSig: 'District Officer Signature',
     adminSig: 'Admin / Supervisory Officer',
+    date: 'Date',
     na: 'N/A',
 
     // Change Password
@@ -257,8 +258,8 @@ const translations = {
     submitFinalReply: 'இறுதி பதில் சமர்ப்பி',
     replyPlaceholder: 'உங்கள் பதிலை உள்ளிடவும்...',
     replyEmpty: 'பதில் காலியாக இருக்க முடியாது.',
-    evidencePhotos: 'ஆதார புகைப்படங்கள் (குறைந்தது 1 தேவை)',
-    photoRequired: 'இறுதி பதிலுக்கு குறைந்தது ஒரு ஆதார புகைப்படம் தேவை.',
+    evidencePhotos: 'ஆதார கோப்புகள் - புகைப்படம்/ஆவணம்/PDF (குறைந்தது 1 தேவை)',
+    photoRequired: 'இறுதி பதிலுக்கு குறைந்தது ஒரு ஆதார கோப்பு தேவை.',
     submitting: 'சமர்ப்பிக்கிறது...',
     submitReply: 'பதில் சமர்ப்பி',
     filesSelected: 'கோப்புகள் தேர்ந்தெடுக்கப்பட்டன',
@@ -278,6 +279,7 @@ const translations = {
     noPhotos: 'புகைப்படங்கள் இல்லை',
     districtOfficerSig: 'மாவட்ட அதிகாரி கையொப்பம்',
     adminSig: 'நிர்வாகி / மேற்பார்வை அதிகாரி',
+    date: 'தேதி',
     na: 'பொ/இ',
 
     // Change Password
