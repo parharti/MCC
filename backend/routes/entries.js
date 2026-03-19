@@ -365,8 +365,9 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         continue;
       }
 
-      // Check duplicate by gist + district + date + link
-      const dupeKey = `${mapped.districtId}||${mapped.entryDate || ''}||${mapped.gist}||${mapped.newsLink || ''}`;
+      // Format date before dupe check so it matches DB format (YYYY-MM-DD)
+      const formattedDate = formatDate(mapped.entryDate) || '';
+      const dupeKey = `${mapped.districtId}||${formattedDate}||${mapped.gist}||${mapped.newsLink || ''}`;
       if (existingSet.has(dupeKey)) {
         skipped.push(`Row ${i + 1}: Duplicate, skipped`);
         continue;
