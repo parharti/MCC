@@ -104,47 +104,42 @@ router.post('/', requireAdmin, async (req, res) => {
       return res.status(400).json({ error: 'All fields except News Link and Constituency are required.' });
     }
 
-    // Auto-generate complaint ID like SM-001
-    // If DB is empty, start from 1. Otherwise use the highest existing sno + 1
-    const allSnap = await db.collection('entries').get();
-    let maxSno = 0;
-    if (allSnap.size > 0) {
-      allSnap.forEach(doc => {
-        const s = doc.data().sno || 0;
-        if (s > maxSno) maxSno = s;
-      });
-    }
-    const countSnap = await db.collection('counters').doc('entries').get();
-    let counterVal = countSnap.exists ? countSnap.data().count : 0;
-    // Use whichever is higher to avoid ID conflicts
-    let sno = Math.max(maxSno, counterVal) + 1;
-    // If DB is empty, start from 1
-    if (allSnap.size === 0) sno = 1;
-    await db.collection('counters').doc('entries').set({ count: sno });
+    // Auto-generate complaint ID using a Firestore transaction to prevent race conditions
+    const result = await db.runTransaction(async (t) => {
+      const counterRef = db.collection('counters').doc('entries');
+      const counterSnap = await t.get(counterRef);
+      let sno = counterSnap.exists ? counterSnap.data().count : 0;
 
-    const complaintId = 'SM-' + String(sno).padStart(3, '0');
+      sno++;
+      const complaintId = 'SM-' + String(sno).padStart(3, '0');
 
-    const entryData = {
-      sno,
-      complaintId,
-      newsLink: newsLink || '',
-      entryDate,
-      entryTime,
-      districtId,
-      constituency: constituency || '',
-      gist,
-      sourceOfComplaint,
-      status: 'Pending',
-      remark: '',
-      immediateReply: '',
-      finalReply: '',
-      evidencePhotos: [],
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
-    };
+      const entryData = {
+        sno,
+        complaintId,
+        newsLink: newsLink || '',
+        entryDate,
+        entryTime,
+        districtId,
+        constituency: constituency || '',
+        gist,
+        sourceOfComplaint,
+        status: 'Pending',
+        remark: '',
+        immediateReply: '',
+        finalReply: '',
+        evidencePhotos: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
 
-    const docRef = await db.collection('entries').add(entryData);
-    res.status(201).json({ id: docRef.id, ...entryData });
+      const entryRef = db.collection('entries').doc();
+      t.set(entryRef, entryData);
+      t.set(counterRef, { count: sno });
+
+      return { id: entryRef.id, ...entryData };
+    });
+
+    res.status(201).json(result);
   } catch (err) {
     console.error('Create entry error:', err);
     res.status(500).json({ error: 'Failed to create entry.' });
@@ -253,18 +248,7 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       'sl.no': '_sno',
     };
 
-    // Get current counter - sync with actual max sno in DB
-    const existingAll = await db.collection('entries').get();
-    let maxSno = 0;
-    existingAll.forEach(doc => {
-      const s = doc.data().sno || 0;
-      if (s > maxSno) maxSno = s;
-    });
-    const countSnap = await db.collection('counters').doc('entries').get();
-    let counterVal = countSnap.exists ? countSnap.data().count : 0;
-    let sno = Math.max(maxSno, counterVal);
-    // If DB is empty, start from 0 (first entry becomes 1)
-    if (existingAll.size === 0) sno = 0;
+    // Counter will be read inside the transaction to prevent race conditions
 
     const { districts } = require('../data/districts');
     const districtLookup = {};
@@ -285,9 +269,9 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       return { district: val.trim(), constituency: '' };
     }
 
-    const created = [];
     const errors = [];
     const skipped = [];
+    const validEntries = [];
     let lastDistrict = '';
     let lastDate = '';
     let lastTime = '';
@@ -377,12 +361,8 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       // Store parsed constituency
       mapped.constituency = parsedConstituency;
 
-      sno++;
-      const complaintId = 'SM-' + String(sno).padStart(3, '0');
-
-      const entryData = {
-        sno,
-        complaintId,
+      // Collect valid entry data (sno and complaintId assigned in transaction)
+      validEntries.push({
         newsLink: mapped.newsLink || '',
         entryDate: formatDate(mapped.entryDate) || new Date().toISOString().split('T')[0],
         entryTime: mapped.entryTime || new Date().toTimeString().slice(0, 5),
@@ -397,14 +377,39 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         extraData: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
-      };
-
-      await db.collection('entries').add(entryData);
-      created.push(complaintId);
+      });
     }
 
-    // Update counter
-    await db.collection('counters').doc('entries').set({ count: sno });
+    // Write all valid entries using Firestore transactions for atomicity
+    // Batch into groups of 400 to stay within the 500 write limit per transaction
+    const BATCH_LIMIT = 400;
+    const batches = [];
+    for (let i = 0; i < validEntries.length; i += BATCH_LIMIT) {
+      batches.push(validEntries.slice(i, i + BATCH_LIMIT));
+    }
+
+    const created = [];
+
+    for (const batch of batches) {
+      const result = await db.runTransaction(async (t) => {
+        const counterRef = db.collection('counters').doc('entries');
+        const counterSnap = await t.get(counterRef);
+        let sno = counterSnap.exists ? counterSnap.data().count : 0;
+
+        const batchCreated = [];
+        for (const entry of batch) {
+          sno++;
+          entry.sno = sno;
+          entry.complaintId = 'SM-' + String(sno).padStart(3, '0');
+          const ref = db.collection('entries').doc();
+          t.set(ref, entry);
+          batchCreated.push(entry.complaintId);
+        }
+        t.set(counterRef, { count: sno });
+        return batchCreated;
+      });
+      created.push(...result);
+    }
 
     res.json({
       message: `${created.length} complaints created. ${skipped.length} duplicates skipped.`,
