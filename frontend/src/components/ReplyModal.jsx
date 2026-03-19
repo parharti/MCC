@@ -10,6 +10,7 @@ export default function ReplyModal({ entry, onClose, onSubmitted }) {
   const [photos, setPhotos] = useState([]);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -36,7 +37,11 @@ export default function ReplyModal({ entry, onClose, onSubmitted }) {
           formData.append('photos', photo);
         }
         await api.put(`/entries/${entry.id}/final-reply`, formData, {
-          headers: { 'Content-Type': 'multipart/form-data' }
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000,
+          onUploadProgress: (e) => {
+            if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+          }
         });
       }
       onSubmitted();
@@ -92,7 +97,11 @@ export default function ReplyModal({ entry, onClose, onSubmitted }) {
           <div className="form-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? t.submitting : t.submitReply}
+              {submitting
+                ? (!isImmediate && uploadProgress > 0 && uploadProgress < 100
+                    ? `${t.uploading} ${uploadProgress}%`
+                    : t.submitting)
+                : t.submitReply}
             </button>
           </div>
         </form>

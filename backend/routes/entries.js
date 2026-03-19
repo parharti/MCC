@@ -794,12 +794,10 @@ router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (r
       return res.status(400).json({ error: 'At least one evidence photo is required.' });
     }
 
-    // Save photos
-    const photoUrls = [];
-    for (const file of req.files) {
-      const result = await uploadPhoto(file.buffer, file.originalname, id);
-      photoUrls.push(result);
-    }
+    // Upload photos in parallel to avoid timeout
+    const photoUrls = await Promise.all(
+      req.files.map(file => uploadPhoto(file.buffer, file.originalname, id))
+    );
 
     await db.collection('entries').doc(id).update({
       finalReply,

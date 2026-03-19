@@ -51,6 +51,7 @@ async function uploadPhoto(fileBuffer, originalName, entryId) {
         });
       }
     );
+    stream.on('error', (err) => reject(err));
     stream.end(fileBuffer);
   });
 }
