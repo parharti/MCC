@@ -612,14 +612,26 @@ router.delete('/:id', requireAdmin, async (req, res) => {
     await deleteEntryPhotos(id);
     await db.collection('entries').doc(id).delete();
 
-    // Sync counter with actual max sno after deletion
+    // Resequence all remaining entries so IDs stay continuous (SM-001, SM-002, ...)
     const remaining = await db.collection('entries').get();
-    let maxSno = 0;
-    remaining.forEach(d => {
-      const s = d.data().sno || 0;
-      if (s > maxSno) maxSno = s;
-    });
-    await db.collection('counters').doc('entries').set({ count: maxSno });
+    const entries = [];
+    remaining.forEach(d => entries.push({ id: d.id, ...d.data() }));
+    entries.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+    const BATCH_LIMIT = 400;
+    for (let i = 0; i < entries.length; i += BATCH_LIMIT) {
+      const batch = db.batch();
+      const chunk = entries.slice(i, i + BATCH_LIMIT);
+      for (let j = 0; j < chunk.length; j++) {
+        const newSno = i + j + 1;
+        batch.update(db.collection('entries').doc(chunk[j].id), {
+          sno: newSno,
+          complaintId: 'SM-' + String(newSno).padStart(3, '0')
+        });
+      }
+      await batch.commit();
+    }
+    await db.collection('counters').doc('entries').set({ count: entries.length });
 
     res.json({ message: 'Entry deleted successfully.' });
   } catch (err) {
