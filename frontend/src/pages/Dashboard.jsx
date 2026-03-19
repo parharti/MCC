@@ -54,10 +54,30 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    api.get('/entries/stats')
-      .then(res => setStats(res.data))
-      .catch(err => console.error('Stats error:', err))
-      .finally(() => setLoading(false));
+    function fetchStats() {
+      api.get('/entries/stats')
+        .then(res => setStats(res.data))
+        .catch(err => console.error('Stats error:', err))
+        .finally(() => setLoading(false));
+    }
+
+    fetchStats();
+
+    // Poll every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+
+    // Refresh when tab becomes visible again
+    function handleVisibility() {
+      if (document.visibilityState === 'visible') {
+        fetchStats();
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   if (loading) return <div className="loading">Loading dashboard...</div>;
