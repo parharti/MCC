@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useLang } from '../context/LangContext';
 import api from '../services/api';
 
@@ -27,10 +28,12 @@ const MEDIA_TYPE_OPTIONS = [
 
 export default function DailyReport() {
   const { t } = useLang();
+  const [searchParams] = useSearchParams();
+  const mediaTypeFromUrl = searchParams.get('mediaType') || '';
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [mediaTypeFilter, setMediaTypeFilter] = useState('');
+  const mediaTypeFilter = mediaTypeFromUrl;
 
   useEffect(() => {
     api.get('/entries')
@@ -84,18 +87,7 @@ export default function DailyReport() {
     <div className="daily-report">
       <div className="page-header no-print">
         <div className="page-header-left">
-          <h2 className="page-title">{t.report}</h2>
-          <select
-            value={mediaTypeFilter}
-            onChange={e => setMediaTypeFilter(e.target.value)}
-            className="date-picker"
-          >
-            {MEDIA_TYPE_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>
-                {opt.value === '' ? t.allComplaints : t[opt.label]}
-              </option>
-            ))}
-          </select>
+          <h2 className="page-title">{t.report}{mediaLabel ? ` - ${mediaLabel}` : ''}</h2>
           <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
             className="date-picker" />
         </div>

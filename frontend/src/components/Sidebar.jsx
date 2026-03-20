@@ -11,9 +11,11 @@ export default function Sidebar() {
   const { t } = useLang();
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [cdOpen, setCdOpen] = useState(true);
+  const [reportOpen, setReportOpen] = useState(true);
 
   const fullPath = location.pathname + location.search;
   const isOnEntries = location.pathname === '/entries';
+  const isOnReport = location.pathname === '/report';
   const currentMediaType = new URLSearchParams(location.search).get('mediaType');
 
   return (
@@ -66,12 +68,37 @@ export default function Sidebar() {
           )}
 
           {user.role === 'admin' && (
-            <button
-              className={`sidebar-link ${location.pathname === '/report' ? 'active' : ''}`}
-              onClick={() => navigate('/report')}
-            >
-              {t.report}
-            </button>
+            <>
+              <button
+                className={`sidebar-link sidebar-parent ${isOnReport && !currentMediaType ? 'active' : ''}`}
+                onClick={() => { navigate('/report'); setReportOpen(prev => !prev); }}
+              >
+                <span>{t.report}</span>
+                <span className="sidebar-arrow">{reportOpen ? '\u25BC' : '\u25B6'}</span>
+              </button>
+              {reportOpen && (
+                <div className="sidebar-sub-links">
+                  <button
+                    className={`sidebar-link sidebar-sub-link ${isOnReport && currentMediaType === 'social_media' ? 'active' : ''}`}
+                    onClick={() => navigate('/report?mediaType=social_media')}
+                  >
+                    {t.socialMedia}
+                  </button>
+                  <button
+                    className={`sidebar-link sidebar-sub-link ${isOnReport && currentMediaType === 'print_media' ? 'active' : ''}`}
+                    onClick={() => navigate('/report?mediaType=print_media')}
+                  >
+                    {t.printMedia}
+                  </button>
+                  <button
+                    className={`sidebar-link sidebar-sub-link ${isOnReport && currentMediaType === 'electronic_media' ? 'active' : ''}`}
+                    onClick={() => navigate('/report?mediaType=electronic_media')}
+                  >
+                    {t.electronicMedia}
+                  </button>
+                </div>
+              )}
+            </>
           )}
 
           {user.role === 'district' && (
