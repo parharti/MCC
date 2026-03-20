@@ -81,6 +81,7 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
 
   // For "all complaints" view (no mediaType filter), check per-entry
   const showInterimReply = !mediaType || mediaType === 'social_media';
+  const showTime = !mediaType || mediaType === 'social_media';
 
   async function saveTime(entryId) {
     try {
@@ -114,10 +115,6 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
     return sortOrder === 'asc' ? cmp : -cmp;
   });
 
-  if (entries.length === 0) {
-    return <div className="empty-state">{t.noEntries}</div>;
-  }
-
   function isEntrySocialMedia(entry) {
     return !entry.mediaType || entry.mediaType === 'social_media';
   }
@@ -138,9 +135,11 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
               <th className="th-sortable" onClick={() => handleSort('date')}>
                 {t.date}{sortArrow('date')}
               </th>
-              <th className="th-sortable" onClick={() => handleSort('time')}>
-                {t.time}{sortArrow('time')}
-              </th>
+              {showTime && (
+                <th className="th-sortable" onClick={() => handleSort('time')}>
+                  {t.time}{sortArrow('time')}
+                </th>
+              )}
               {user.role === 'admin' && <th>{t.district}</th>}
               {user.role === 'district' && <th>{t.constituency}</th>}
               <th>{t.gistOfContent}</th>
@@ -166,23 +165,25 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
                 }>
                   <td><strong>{entry.complaintId || `SM-${String(entry.sno).padStart(3, '0')}`}</strong></td>
                   <td>{entry.entryDate}</td>
-                  <td>
-                    {user.role === 'admin' && editingTime === entry.id ? (
-                      <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                        <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
-                          style={{ width: '100px', padding: '2px 4px', fontSize: '13px' }} />
-                        <button className="btn btn-sm btn-primary" onClick={() => saveTime(entry.id)}
-                          style={{ padding: '2px 6px', fontSize: '11px' }}>OK</button>
-                      </div>
-                    ) : (
-                      <span
-                        onClick={() => { if (user.role === 'admin') { setEditingTime(entry.id); setNewTime(entry.entryTime); }}}
-                        style={user.role === 'admin' ? { cursor: 'pointer', borderBottom: '1px dashed var(--gray-300)' } : {}}
-                      >
-                        {entry.entryTime}
-                      </span>
-                    )}
-                  </td>
+                  {showTime && (
+                    <td>
+                      {user.role === 'admin' && editingTime === entry.id ? (
+                        <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                          <input type="time" value={newTime} onChange={e => setNewTime(e.target.value)}
+                            style={{ width: '100px', padding: '2px 4px', fontSize: '13px' }} />
+                          <button className="btn btn-sm btn-primary" onClick={() => saveTime(entry.id)}
+                            style={{ padding: '2px 6px', fontSize: '11px' }}>OK</button>
+                        </div>
+                      ) : (
+                        <span
+                          onClick={() => { if (user.role === 'admin') { setEditingTime(entry.id); setNewTime(entry.entryTime); }}}
+                          style={user.role === 'admin' ? { cursor: 'pointer', borderBottom: '1px dashed var(--gray-300)' } : {}}
+                        >
+                          {entry.entryTime}
+                        </span>
+                      )}
+                    </td>
+                  )}
                   {user.role === 'admin' && <td>{DISTRICT_NAMES[entry.districtId] || entry.districtId}</td>}
                   {user.role === 'district' && (
                     <td>
@@ -262,6 +263,13 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
                 </tr>
               );
             })}
+            {sortedEntries.length === 0 && (
+              <tr>
+                <td colSpan={99} className="empty-state">
+                  {t.noEntries}
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

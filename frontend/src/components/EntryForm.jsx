@@ -80,11 +80,13 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
               <input type="date" name="entryDate" value={form.entryDate}
                 onChange={handleChange} required />
             </div>
-            <div className="form-group">
-              <label>{t.timeLabel} *</label>
-              <input type="time" name="entryTime" value={form.entryTime}
-                onChange={handleChange} required />
-            </div>
+            {form.mediaType === 'social_media' && (
+              <div className="form-group">
+                <label>{t.timeLabel} *</label>
+                <input type="time" name="entryTime" value={form.entryTime}
+                  onChange={handleChange} required />
+              </div>
+            )}
           </div>
 
           <div className="form-row">

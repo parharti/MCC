@@ -75,6 +75,7 @@ export default function Entries() {
 
   const fetchEntries = useCallback(async () => {
     try {
+      setEntries([]);
       setLoading(true);
       const params = new URLSearchParams();
       if (districtFilter) params.set('districtId', districtFilter);
@@ -91,6 +92,7 @@ export default function Entries() {
   }, [districtFilter, mediaType]);
 
   useEffect(() => {
+    setStatusFilter(statusFromUrl || 'all');
     fetchEntries();
   }, [fetchEntries]);
 

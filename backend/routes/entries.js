@@ -124,11 +124,14 @@ router.post('/', requireAdmin, async (req, res) => {
   try {
     const { newsLink, entryDate, entryTime, districtId, constituency, gist, sourceOfComplaint, mediaType: reqMediaType } = req.body;
 
-    if (!entryDate || !entryTime || !districtId || !gist || !sourceOfComplaint) {
+    const mediaType = reqMediaType || 'social_media';
+
+    if (!entryDate || !districtId || !gist || !sourceOfComplaint) {
       return res.status(400).json({ error: 'All fields except News Link and Constituency are required.' });
     }
-
-    const mediaType = reqMediaType || 'social_media';
+    if (mediaType === 'social_media' && !entryTime) {
+      return res.status(400).json({ error: 'Time is required for Social Media entries.' });
+    }
     const mtConfig = MEDIA_TYPE_CONFIG[mediaType];
     if (!mtConfig) {
       return res.status(400).json({ error: 'Invalid media type.' });
