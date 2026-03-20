@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const { db } = require('../config/firebase');
 const { districts } = require('../data/districts');
 
@@ -22,7 +23,8 @@ router.post('/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
       const adminData = adminDoc.data();
-      if (adminData.password !== password) {
+      const adminMatch = await bcrypt.compare(password, adminData.password);
+      if (!adminMatch) {
         return res.status(401).json({ error: 'Invalid password.' });
       }
       const user = { role: 'admin', username: 'admin' };
@@ -45,7 +47,8 @@ router.post('/login', async (req, res) => {
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
       const districtData = districtDoc.data();
-      if (districtData.password !== password) {
+      const districtMatch = await bcrypt.compare(password, districtData.password);
+      if (!districtMatch) {
         return res.status(401).json({ error: 'Invalid password.' });
       }
       const user = {
@@ -120,11 +123,13 @@ router.put('/change-password', async (req, res) => {
     const doc = await db.collection('users').doc(user.districtId).get();
     if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
 
-    if (doc.data().password !== currentPassword) {
+    const isMatch = await bcrypt.compare(currentPassword, doc.data().password);
+    if (!isMatch) {
       return res.status(401).json({ error: 'Current password is incorrect.' });
     }
 
-    await db.collection('users').doc(user.districtId).update({ password: newPassword });
+    const hashedNew = await bcrypt.hash(newPassword, 10);
+    await db.collection('users').doc(user.districtId).update({ password: hashedNew });
     res.json({ message: 'Password changed successfully.' });
   } catch (err) {
     console.error('Change password error:', err);

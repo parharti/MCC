@@ -5,6 +5,7 @@
  */
 
 require('dotenv').config();
+const bcrypt = require('bcryptjs');
 const { db } = require('./config/firebase');
 const { districts, districtPasswords } = require('./data/districts');
 
@@ -12,23 +13,25 @@ async function seed() {
   console.log('Seeding database...\n');
 
   // Create admin user
+  const adminHash = await bcrypt.hash(process.env.ADMIN_PASSWORD, 10);
   await db.collection('users').doc('admin').set({
     role: 'admin',
     username: 'admin',
-    password: process.env.ADMIN_PASSWORD
+    password: adminHash
   });
   console.log('Created admin user');
 
   // Create district users
   for (const district of districts) {
+    const hash = await bcrypt.hash(districtPasswords[district.id], 10);
     await db.collection('users').doc(district.id).set({
       role: 'district',
       username: district.name,
       districtId: district.id,
       districtName: district.name,
-      password: districtPasswords[district.id]
+      password: hash
     });
-    console.log(`Created ${district.name} user (password: ${districtPasswords[district.id]})`);
+    console.log(`Created ${district.name} user`);
   }
 
   // Initialize entry counter

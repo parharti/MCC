@@ -44,10 +44,11 @@ const districts = [
   { id: 'virudhunagar', name: 'Virudhunagar', code: 'vng' }
 ];
 
-// Password = district code + @2026
+// Password = district code + suffix from env
 const districtPasswords = {};
+const suffix = process.env.DISTRICT_PASSWORD_SUFFIX || '@2026';
 districts.forEach(d => {
-  districtPasswords[d.id] = `${d.code}@2026`;
+  districtPasswords[d.id] = `${d.code}${suffix}`;
 });
 
 // Assembly constituencies per district
