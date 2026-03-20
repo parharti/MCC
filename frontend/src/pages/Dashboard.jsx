@@ -52,6 +52,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [mediaFilter, setMediaFilter] = useState('');
 
   useEffect(() => {
     function fetchStats() {
@@ -143,7 +144,18 @@ export default function Dashboard() {
         <>
           <div className="district-list-header">
             <h3 className="section-heading">{t.districtOverview} ({filteredDistricts.length})</h3>
-            <div className="district-search">
+            <div className="district-search" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <select
+                value={mediaFilter}
+                onChange={e => setMediaFilter(e.target.value)}
+                className="search-input"
+                style={{ width: 'auto' }}
+              >
+                <option value="">{t.allComplaints}</option>
+                <option value="social_media">{t.socialMedia}</option>
+                <option value="print_media">{t.printMedia}</option>
+                <option value="electronic_media">{t.electronicMedia}</option>
+              </select>
               <input
                 type="text"
                 placeholder={t.searchDistrict}
@@ -170,7 +182,11 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {filteredDistricts.map(([id, name], idx) => {
-                  const ds = districtStats[id] || { total: 0, pending: 0, replied: 0, closed: 0, overdue: 0 };
+                  const raw = districtStats[id] || {};
+                  // When media filter active, use that media type's stats; otherwise use overall
+                  const ds = mediaFilter
+                    ? (raw[mediaFilter] || { total: 0, pending: 0, replied: 0, closed: 0, overdue: 0 })
+                    : { total: raw.total || 0, pending: raw.pending || 0, replied: raw.replied || 0, closed: raw.closed || 0, overdue: raw.overdue || 0 };
                   const pct = ds.total > 0 ? Math.round((ds.closed / ds.total) * 100) : 0;
                   const hasOverdue = ds.overdue > 0;
 
@@ -186,9 +202,9 @@ export default function Dashboard() {
                         {hasOverdue && <span className="overdue-dot-inline"></span>}
                       </td>
                       <td className="dt-total">{ds.total}</td>
-                      <td className="dt-pending">{ds.pending}</td>
-                      <td className="dt-replied">{ds.replied}</td>
-                      <td className="dt-closed">{ds.closed}</td>
+                      <td className="dt-pending">{ds.pending > 0 ? ds.pending : '-'}</td>
+                      <td className="dt-replied">{ds.replied > 0 ? ds.replied : '-'}</td>
+                      <td className="dt-closed">{ds.closed > 0 ? ds.closed : '-'}</td>
                       <td className="dt-overdue">{ds.overdue > 0 ? ds.overdue : '-'}</td>
                       <td>
                         <div className="dt-progress-cell">
