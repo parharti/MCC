@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.*
+!.env.example
 backend/config/serviceAccountKey.json
 backend/uploads/
 dist/

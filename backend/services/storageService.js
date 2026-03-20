@@ -3,9 +3,9 @@ const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 
 cloudinary.config({
-  cloud_name: 'dpi0uk9kb',
-  api_key: '273978187518297',
-  api_secret: '2C3vJzGbH1CR_aLnGWnbB3NMCmQ'
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.tiff', '.svg'];

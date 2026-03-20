@@ -15,9 +15,9 @@ async function seed() {
   await db.collection('users').doc('admin').set({
     role: 'admin',
     username: 'admin',
-    password: 'admin@2026'
+    password: process.env.ADMIN_PASSWORD
   });
-  console.log('Created admin user (password: admin@2026)');
+  console.log('Created admin user');
 
   // Create district users
   for (const district of districts) {
