@@ -17,7 +17,7 @@ export default function Header() {
         <h1 className="header-title">
           Election Commission of India - Tamil Nadu
         </h1>
-        <p className="header-subtitle">Social Media Tracker Portal</p>
+        <p className="header-subtitle">Media Tracker Portal</p>
       </div>
       <nav className="header-nav">
         <button

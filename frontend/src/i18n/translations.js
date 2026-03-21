@@ -1,7 +1,7 @@
 const translations = {
   en: {
     // Login
-    portalTitle: 'Social Media Tracker Portal',
+    portalTitle: 'Media Tracker Portal',
     portalSubtitle: 'Election Commission, Tamil Nadu',
     selectRole: 'Select Role',
     admin: 'Admin',
@@ -17,7 +17,7 @@ const translations = {
     loginFailed: 'Login failed. Please try again.',
 
     // Sidebar
-    sidebarBrand: 'Social Media Tracker Portal',
+    sidebarBrand: 'Media Tracker Portal',
     sidebarSub: 'Election Commission, TN',
     dashboard: 'Dashboard',
     entries: 'Complaints',
@@ -29,7 +29,7 @@ const translations = {
     allComplaints: 'All Complaints',
 
     // TopBar
-    topbarTitle: 'Social Media Tracker Portal - Election Commission, Tamil Nadu',
+    topbarTitle: 'Media Tracker Portal - Election Commission, Tamil Nadu',
     administrator: 'Administrator',
     logout: 'Logout',
 

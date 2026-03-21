@@ -32,7 +32,7 @@ export default function Reports() {
       ) : (
         <div className="report-content">
           <div className="report-title print-only">
-            <h2>Social Media Tracker Portal</h2>
+            <h2>Media Tracker Portal</h2>
             <h3>Election Commission, Tamil Nadu - Closed Entries Report</h3>
             <p>Generated on: {new Date().toLocaleDateString('en-IN', {
               day: '2-digit', month: 'long', year: 'numeric'

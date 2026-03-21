@@ -1,6 +1,6 @@
 /**
  * Tamil Nadu - All 38 Districts
- * Social Media Tracking Portal - Election Commission
+ * Media Tracking Portal - Election Commission
  */
 
 const districts = [
