@@ -111,7 +111,7 @@ export default function Sidebar() {
           )}
         </nav>
         <div className="sidebar-footer">
-          Social Media Tracker Portal
+          Media Tracker Portal
         </div>
       </aside>
 

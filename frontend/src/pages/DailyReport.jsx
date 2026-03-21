@@ -96,7 +96,7 @@ export default function DailyReport() {
 
       <div className="report-print-content">
         <div className="report-header-print">
-          <h2>Social Media Tracker Portal</h2>
+          <h2>Media Tracker Portal</h2>
           <h3>{t.portalSubtitle}</h3>
           <p>Daily Report - {selectedDate}{mediaLabel ? ` (${mediaLabel})` : ''}</p>
         </div>

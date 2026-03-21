@@ -1173,10 +1173,11 @@ body {
 @media print {
   .no-print, .sidebar, .topbar { display: none !important; }
   .print-only { display: block; }
-  .app-main { margin-left: 0; }
+  .app-layout { display: block !important; }
+  .app-main { margin-left: 0 !important; display: block !important; }
   body { background: white; font-size: 12px; }
-  .app-content { padding: 0; }
-  .report-content { box-shadow: none; border: none; padding: 0; }
+  .app-content { padding: 0 !important; max-width: 100% !important; overflow: visible !important; }
+  .report-content { box-shadow: none; border: none; padding: 0; overflow: visible !important; width: 100% !important; }
   .report-entry { page-break-inside: avoid; }
   .report-photo { max-width: 150px; max-height: 120px; }
 }
@@ -1430,11 +1431,16 @@ body {
 @media print {
   .no-print { display: none !important; }
   .sidebar, .top-bar { display: none !important; }
-  .app-main { margin-left: 0 !important; }
-  .app-content { padding: 0 !important; }
-  .report-print-content { box-shadow: none; border: none; padding: 0; }
-  .report-table-full { font-size: 11px; }
+  .app-layout { display: block !important; }
+  .app-main { margin-left: 0 !important; display: block !important; }
+  .app-content { padding: 0 !important; max-width: 100% !important; overflow: visible !important; }
+  .daily-report { overflow: visible !important; }
+  .report-print-content { box-shadow: none; border: none; padding: 0; overflow: visible !important; width: 100% !important; }
+  .report-summary-grid { display: flex !important; flex-wrap: wrap !important; }
+  .report-table-full { font-size: 11px; width: 100% !important; }
   .report-table-full th { background: #1a2744 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .rs-item { break-inside: avoid; }
   .report-entry { break-inside: avoid; }
+  .report-district-table { break-inside: avoid; }
+  .report-complaints-list { break-before: auto; }
 }
