@@ -1368,6 +1368,13 @@ body {
 .daily-report .page-header-left {
   display: flex; align-items: center; gap: 16px;
 }
+.report-controls {
+  display: flex; gap: 8px; align-items: center;
+}
+.daily-report .range-select {
+  padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;
+  font-size: 14px; background: #fff; cursor: pointer;
+}
 .daily-report .date-picker {
   padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px;
   font-size: 14px;

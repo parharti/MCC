@@ -26,6 +26,19 @@ const MEDIA_TYPE_OPTIONS = [
   { value: 'electronic_media', label: 'electronicMedia' },
 ];
 
+const RANGE_OPTIONS = [
+  { value: 'daily', label: 'Daily', days: 1 },
+  { value: '2days', label: '2 Days', days: 2 },
+  { value: 'weekly', label: 'Weekly', days: 7 },
+];
+
+function getDateRange(endDate, days) {
+  const end = new Date(endDate);
+  const start = new Date(end);
+  start.setDate(end.getDate() - (days - 1));
+  return { start: start.toISOString().split('T')[0], end: endDate };
+}
+
 export default function DailyReport() {
   const { t } = useLang();
   const [searchParams] = useSearchParams();
@@ -33,6 +46,7 @@ export default function DailyReport() {
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [rangeType, setRangeType] = useState('daily');
   const mediaTypeFilter = mediaTypeFromUrl;
 
   useEffect(() => {
@@ -49,19 +63,23 @@ export default function DailyReport() {
 
   const isSocialView = !mediaTypeFilter || mediaTypeFilter === 'social_media';
 
-  const dayEntries = entries.filter(e => e.entryDate === selectedDate);
+  const rangeDays = RANGE_OPTIONS.find(r => r.value === rangeType)?.days || 1;
+  const { start: rangeStart, end: rangeEnd } = getDateRange(selectedDate, rangeDays);
+  const rangeEntries = entries.filter(e => e.entryDate >= rangeStart && e.entryDate <= rangeEnd);
+
+  const rangeLabel = rangeType === 'daily' ? selectedDate : `${rangeStart} to ${rangeEnd}`;
 
   const totalAll = entries.length;
-  const totalDay = dayEntries.length;
-  const pendingDay = dayEntries.filter(e => e.status === 'Pending').length;
-  const repliedDay = dayEntries.filter(e => e.status === 'Replied').length;
-  const closedDay = dayEntries.filter(e => e.status === 'Closed').length;
+  const totalDay = rangeEntries.length;
+  const pendingDay = rangeEntries.filter(e => e.status === 'Pending').length;
+  const repliedDay = rangeEntries.filter(e => e.status === 'Replied').length;
+  const closedDay = rangeEntries.filter(e => e.status === 'Closed').length;
   const overdueDay = isSocialView
-    ? dayEntries.filter(e => e.status !== 'Closed' && (Date.now() - new Date(e.createdAt).getTime()) >= 24*60*60*1000).length
+    ? rangeEntries.filter(e => e.status !== 'Closed' && (Date.now() - new Date(e.createdAt).getTime()) >= 24*60*60*1000).length
     : 0;
 
   const districtWise = {};
-  dayEntries.forEach(e => {
+  rangeEntries.forEach(e => {
     if (!districtWise[e.districtId]) districtWise[e.districtId] = { total: 0, pending: 0, replied: 0, closed: 0 };
     districtWise[e.districtId].total++;
     if (e.status === 'Pending') districtWise[e.districtId].pending++;
@@ -88,8 +106,15 @@ export default function DailyReport() {
       <div className="page-header no-print">
         <div className="page-header-left">
           <h2 className="page-title">{t.report}{mediaLabel ? ` - ${mediaLabel}` : ''}</h2>
-          <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-            className="date-picker" />
+          <div className="report-controls">
+            <select value={rangeType} onChange={e => setRangeType(e.target.value)} className="range-select">
+              {RANGE_OPTIONS.map(r => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+              className="date-picker" />
+          </div>
         </div>
         <button className="btn btn-primary" onClick={handlePrint}>{t.downloadPrint}</button>
       </div>
@@ -98,11 +123,11 @@ export default function DailyReport() {
         <div className="report-header-print">
           <h2>Media Tracker Portal</h2>
           <h3>{t.portalSubtitle}</h3>
-          <p>Daily Report - {selectedDate}{mediaLabel ? ` (${mediaLabel})` : ''}</p>
+          <p>{rangeType === 'daily' ? 'Daily' : rangeType === '2days' ? '2-Day' : 'Weekly'} Report - {rangeLabel}{mediaLabel ? ` (${mediaLabel})` : ''}</p>
         </div>
 
         <div className="report-summary">
-          <h3>Day Summary ({selectedDate})</h3>
+          <h3>{rangeType === 'daily' ? 'Day' : 'Period'} Summary ({rangeLabel})</h3>
           <div className="report-summary-grid">
             <div className="rs-item"><span className="rs-num">{totalDay}</span><span className="rs-label">{t.totalComplaints}</span></div>
             <div className="rs-item rs-pending"><span className="rs-num">{pendingDay}</span><span className="rs-label">{t.pending}</span></div>
@@ -130,7 +155,7 @@ export default function DailyReport() {
 
         {Object.keys(districtWise).length > 0 && (
           <div className="report-district-table">
-            <h3>District-wise Breakdown ({selectedDate})</h3>
+            <h3>District-wise Breakdown ({rangeLabel})</h3>
             <table className="report-table-full">
               <thead>
                 <tr>
@@ -161,9 +186,9 @@ export default function DailyReport() {
         )}
 
         <div className="report-complaints-list">
-          <h3>Complaints ({selectedDate}) - {dayEntries.length} total</h3>
-          {dayEntries.length === 0 ? (
-            <p className="text-muted">No complaints for this date.</p>
+          <h3>Complaints ({rangeLabel}) - {rangeEntries.length} total</h3>
+          {rangeEntries.length === 0 ? (
+            <p className="text-muted">No complaints for this period.</p>
           ) : (
             <table className="report-table-full">
               <thead>
@@ -178,7 +203,7 @@ export default function DailyReport() {
                 </tr>
               </thead>
               <tbody>
-                {dayEntries.sort((a, b) => a.sno - b.sno).map(entry => (
+                {rangeEntries.sort((a, b) => a.sno - b.sno).map(entry => (
                   <tr key={entry.id}>
                     <td>{entry.complaintId}</td>
                     <td>{DISTRICT_NAMES[entry.districtId] || entry.districtId}</td>
