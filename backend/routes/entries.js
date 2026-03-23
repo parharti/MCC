@@ -152,12 +152,15 @@ router.get('/stats', requireAuth, async (req, res) => {
   }
 });
 
-// POST /api/entries - create new entry (admin only)
-router.post('/', requireAdmin, async (req, res) => {
+// POST /api/entries - create new entry (admin and district users)
+router.post('/', requireAuth, async (req, res) => {
   try {
-    const { newsLink, entryDate, entryTime, districtId, constituency, gist, sourceOfComplaint, mediaType: reqMediaType } = req.body;
+    const { newsLink, entryDate, entryTime, districtId: bodyDistrictId, constituency, gist, sourceOfComplaint, mediaType: reqMediaType } = req.body;
 
     const mediaType = reqMediaType || 'social_media';
+
+    // District users can only add entries for their own district
+    const districtId = req.user.role === 'district' ? req.user.districtId : bodyDistrictId;
 
     if (!entryDate || !districtId || !gist || !sourceOfComplaint) {
       return res.status(400).json({ error: 'All fields except News Link and Constituency are required.' });
@@ -191,6 +194,7 @@ router.post('/', requireAdmin, async (req, res) => {
         constituency: constituency || '',
         gist,
         sourceOfComplaint,
+        addedBy: req.user.role === 'admin' ? 'Admin' : (req.user.districtName || req.user.districtId),
         status: 'Pending',
         remark: '',
         immediateReply: '',
@@ -530,6 +534,7 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         constituency: mapped.constituency || '',
         gist: mapped.gist,
         sourceOfComplaint: mapped.sourceOfComplaint || '',
+        addedBy: 'Admin',
         status: 'Pending',
         immediateReply: '',
         repliedLink: '',

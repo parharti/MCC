@@ -144,6 +144,7 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
               {user.role === 'district' && <th>{t.constituency}</th>}
               <th>{t.gistOfContent}</th>
               <th>{t.source}</th>
+              <th>{t.addedBy}</th>
               <th>{t.newsLink}</th>
               <th>{t.status}</th>
               {showInterimReply && <th>{t.immediateReply}</th>}
@@ -197,6 +198,7 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
                   )}
                   <td className="cell-gist">{entry.gist}</td>
                   <td>{entry.sourceOfComplaint}</td>
+                  <td>{entry.addedBy || 'Admin'}</td>
                   <td>
                     {entry.newsLink ? (
                       <a href={entry.newsLink} target="_blank" rel="noopener noreferrer"

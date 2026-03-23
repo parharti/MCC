@@ -113,6 +113,7 @@ export default function ReportView({ entry, onClose }) {
               <tr><td className="label">{t.assemblyConstituency}</td><td>{entry.constituency}</td></tr>
               <tr><td className="label">{t.gistOfContent}</td><td>{entry.gist}</td></tr>
               <tr><td className="label">{t.sourceOfComplaint}</td><td>{entry.sourceOfComplaint}</td></tr>
+              <tr><td className="label">{t.addedBy}</td><td>{entry.addedBy || 'Admin'}</td></tr>
               <tr><td className="label">{t.newsLink}</td><td>{entry.newsLink || t.na}</td></tr>
               <tr><td className="label">{t.immediateReply}</td><td>{entry.immediateReply}</td></tr>
               <tr><td className="label">{t.repliedLink}</td><td>{entry.repliedLink ? <a href={entry.repliedLink} target="_blank" rel="noopener noreferrer">{entry.repliedLink}</a> : t.na}</td></tr>

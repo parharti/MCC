@@ -7,3 +7,5 @@ backend/uploads/
 dist/
 .DS_Store
 .vercel
+
+.vercel

@@ -1,15 +1,17 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
 import api from '../services/api';
 
 export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
+  const { user } = useAuth();
   const { t } = useLang();
   const [districts, setDistricts] = useState([]);
   const [form, setForm] = useState({
     newsLink: '',
     entryDate: new Date().toISOString().split('T')[0],
     entryTime: new Date().toTimeString().slice(0, 5),
-    districtId: '',
+    districtId: user.role === 'district' ? user.districtId : '',
     gist: '',
     sourceOfComplaint: '',
     mediaType: defaultMediaType || 'social_media'
@@ -18,8 +20,10 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    api.get('/districts').then(res => setDistricts(res.data.districts)).catch(() => {});
-  }, []);
+    if (user.role === 'admin') {
+      api.get('/districts').then(res => setDistricts(res.data.districts)).catch(() => {});
+    }
+  }, [user.role]);
 
   function handleChange(e) {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -92,13 +96,17 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
           <div className="form-row">
             <div className="form-group">
               <label>{t.districtLabel} *</label>
-              <select name="districtId" value={form.districtId}
-                onChange={handleChange} required>
-                <option value="">-- {t.selectDistrict} --</option>
-                {districts.map(d => (
-                  <option key={d.id} value={d.id}>{d.name}</option>
-                ))}
-              </select>
+              {user.role === 'district' ? (
+                <input type="text" value={user.districtName || user.districtId} disabled />
+              ) : (
+                <select name="districtId" value={form.districtId}
+                  onChange={handleChange} required>
+                  <option value="">-- {t.selectDistrict} --</option>
+                  {districts.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
 

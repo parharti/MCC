@@ -2,15 +2,22 @@ import { useState, useEffect } from 'react';
 import api from '../services/api';
 
 export default function Reports() {
-  const [entries, setEntries] = useState([]);
+  const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [addedByFilter, setAddedByFilter] = useState('all');
 
   useEffect(() => {
     api.get('/reports')
-      .then(res => setEntries(res.data.entries))
+      .then(res => setAllEntries(res.data.entries))
       .catch(err => console.error('Failed to fetch reports:', err))
       .finally(() => setLoading(false));
   }, []);
+
+  const entries = addedByFilter === 'all'
+    ? allEntries
+    : addedByFilter === 'admin'
+      ? allEntries.filter(e => (e.addedBy || 'Admin') === 'Admin')
+      : allEntries.filter(e => (e.addedBy || 'Admin') !== 'Admin');
 
   function handlePrint() {
     window.print();
@@ -22,9 +29,17 @@ export default function Reports() {
     <div className="reports-page">
       <div className="reports-header no-print">
         <h2>Closed Entries Report</h2>
-        <button className="btn btn-primary" onClick={handlePrint}>
-          Print Report
-        </button>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <select value={addedByFilter} onChange={e => setAddedByFilter(e.target.value)}
+            className="range-select" style={{ padding: '6px 10px', borderRadius: '6px' }}>
+            <option value="all">All</option>
+            <option value="admin">Added by Admin</option>
+            <option value="district">Added by District</option>
+          </select>
+          <button className="btn btn-primary" onClick={handlePrint}>
+            Print Report
+          </button>
+        </div>
       </div>
 
       {entries.length === 0 ? (
@@ -51,6 +66,7 @@ export default function Reports() {
                   <tr><td className="label">Assembly Constituency</td><td>{entry.constituency}</td></tr>
                   <tr><td className="label">Gist of Content</td><td>{entry.gist}</td></tr>
                   <tr><td className="label">Source of Complaint</td><td>{entry.sourceOfComplaint}</td></tr>
+                  <tr><td className="label">Added By</td><td>{entry.addedBy || 'Admin'}</td></tr>
                   <tr>
                     <td className="label">News Link</td>
                     <td>{entry.newsLink || 'N/A'}</td>

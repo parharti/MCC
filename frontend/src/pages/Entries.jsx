@@ -153,16 +153,16 @@ export default function Entries() {
             </button>
           )}
         </div>
-        {user.role === 'admin' && (
-          <div className="header-actions">
+        <div className="header-actions">
+          {user.role === 'admin' && (
             <button className="btn btn-secondary" onClick={() => setShowExcelUpload(true)}>
               {t.uploadExcel}
             </button>
-            <button className="btn btn-primary" onClick={() => setShowEntryForm(true)}>
-              {t.addEntry}
-            </button>
-          </div>
-        )}
+          )}
+          <button className="btn btn-primary" onClick={() => setShowEntryForm(true)}>
+            {t.addEntry}
+          </button>
+        </div>
       </div>
 
       <div className="filter-bar">

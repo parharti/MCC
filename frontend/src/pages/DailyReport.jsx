@@ -47,6 +47,7 @@ export default function DailyReport() {
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [rangeType, setRangeType] = useState('daily');
+  const [addedByFilter, setAddedByFilter] = useState('all');
   const mediaTypeFilter = mediaTypeFromUrl;
 
   useEffect(() => {
@@ -57,9 +58,16 @@ export default function DailyReport() {
   }, []);
 
   // Filter entries by media type
-  const entries = mediaTypeFilter
+  const mediaFiltered = mediaTypeFilter
     ? allEntries.filter(e => (e.mediaType || 'social_media') === mediaTypeFilter)
     : allEntries;
+
+  // Filter entries by addedBy
+  const entries = addedByFilter === 'all'
+    ? mediaFiltered
+    : addedByFilter === 'admin'
+      ? mediaFiltered.filter(e => (e.addedBy || 'Admin') === 'Admin')
+      : mediaFiltered.filter(e => (e.addedBy || 'Admin') !== 'Admin');
 
   const isSocialView = !mediaTypeFilter || mediaTypeFilter === 'social_media';
 
@@ -111,6 +119,11 @@ export default function DailyReport() {
               {RANGE_OPTIONS.map(r => (
                 <option key={r.value} value={r.value}>{r.label}</option>
               ))}
+            </select>
+            <select value={addedByFilter} onChange={e => setAddedByFilter(e.target.value)} className="range-select">
+              <option value="all">{t.allAddedBy}</option>
+              <option value="admin">{t.addedByAdmin}</option>
+              <option value="district">{t.addedByDistrict}</option>
             </select>
             <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
               className="date-picker" />
@@ -197,6 +210,7 @@ export default function DailyReport() {
                   <th>{t.district}</th>
                   <th>{t.gistOfContent}</th>
                   <th>{t.source}</th>
+                  <th>{t.addedBy}</th>
                   <th>{t.status}</th>
                   {isSocialView && <th>{t.immediateReply}</th>}
                   <th>{t.finalReply}</th>
@@ -209,6 +223,7 @@ export default function DailyReport() {
                     <td>{DISTRICT_NAMES[entry.districtId] || entry.districtId}</td>
                     <td>{entry.gist}</td>
                     <td>{entry.sourceOfComplaint}</td>
+                    <td>{entry.addedBy || 'Admin'}</td>
                     <td>
                       <span className={`badge badge-${entry.status.toLowerCase()}`}>
                         {entry.status === 'Pending' ? t.pending : entry.status === 'Replied' ? t.replied : t.closed}
