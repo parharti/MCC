@@ -10,7 +10,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 
 // Stats cache - avoids reading all entries on every dashboard poll
 let statsCache = { data: null, timestamp: 0 };
-const STATS_CACHE_TTL = 15000; // 15 seconds
+const STATS_CACHE_TTL = 300000; // 5 minutes
 function invalidateStatsCache() { statsCache = { data: null, timestamp: 0 }; }
 
 const MEDIA_TYPE_PREFIX = {

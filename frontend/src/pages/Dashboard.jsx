@@ -64,8 +64,8 @@ export default function Dashboard() {
 
     fetchStats();
 
-    // Poll every 30 seconds
-    const interval = setInterval(fetchStats, 30000);
+    // Poll every 5 minutes
+    const interval = setInterval(fetchStats, 300000);
 
     // Refresh when tab becomes visible again
     function handleVisibility() {
