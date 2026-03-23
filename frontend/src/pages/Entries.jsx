@@ -68,6 +68,7 @@ export default function Entries() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showEntryForm, setShowEntryForm] = useState(false);
+  const [editEntry, setEditEntry] = useState(null);
   const [replyModal, setReplyModal] = useState(null);
   const [constituencyModal, setConstituencyModal] = useState(null);
   const [showExcelUpload, setShowExcelUpload] = useState(false);
@@ -96,8 +97,19 @@ export default function Entries() {
     fetchEntries();
   }, [fetchEntries]);
 
+  async function handleDelete(id) {
+    if (!window.confirm(t.confirmDelete)) return;
+    try {
+      await api.delete(`/entries/${id}`);
+      fetchEntries();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete entry.');
+    }
+  }
+
   function handleEntryCreated() {
     setShowEntryForm(false);
+    setEditEntry(null);
     fetchEntries();
   }
 
@@ -175,11 +187,12 @@ export default function Entries() {
         />
       )}
 
-      {showEntryForm && (
+      {(showEntryForm || editEntry) && (
         <EntryForm
-          onClose={() => setShowEntryForm(false)}
+          onClose={() => { setShowEntryForm(false); setEditEntry(null); }}
           onCreated={handleEntryCreated}
           defaultMediaType={mediaType || 'social_media'}
+          editEntry={editEntry}
         />
       )}
 
@@ -211,7 +224,8 @@ export default function Entries() {
             return e.status === statusFilter;
           })}
           user={user}
-
+          onDelete={handleDelete}
+          onEdit={entry => setEditEntry(entry)}
           onReply={entry => setReplyModal(entry)}
           onFillConstituency={entry => setConstituencyModal(entry)}
           onRefresh={fetchEntries}

@@ -3,18 +3,19 @@ import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
 import api from '../services/api';
 
-export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
+export default function EntryForm({ onClose, onCreated, defaultMediaType, editEntry }) {
   const { user } = useAuth();
   const { t } = useLang();
+  const isEdit = !!editEntry;
   const [districts, setDistricts] = useState([]);
   const [form, setForm] = useState({
-    newsLink: '',
-    entryDate: new Date().toISOString().split('T')[0],
-    entryTime: new Date().toTimeString().slice(0, 5),
-    districtId: user.role === 'district' ? user.districtId : '',
-    gist: '',
-    sourceOfComplaint: '',
-    mediaType: defaultMediaType || 'social_media'
+    newsLink: editEntry?.newsLink || '',
+    entryDate: editEntry?.entryDate || new Date().toISOString().split('T')[0],
+    entryTime: editEntry?.entryTime || new Date().toTimeString().slice(0, 5),
+    districtId: editEntry?.districtId || (user.role === 'district' ? user.districtId : ''),
+    gist: editEntry?.gist || '',
+    sourceOfComplaint: editEntry?.sourceOfComplaint || '',
+    mediaType: editEntry?.mediaType || defaultMediaType || 'social_media'
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -33,18 +34,26 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
     e.preventDefault();
     setError('');
 
-    if (!form.entryDate || !form.entryTime || !form.districtId ||
+    if (!form.entryDate || !form.districtId ||
         !form.gist || !form.sourceOfComplaint) {
+      setError(t.allFieldsRequired);
+      return;
+    }
+    if (form.mediaType === 'social_media' && !form.entryTime) {
       setError(t.allFieldsRequired);
       return;
     }
 
     setSubmitting(true);
     try {
-      await api.post('/entries', form);
+      if (isEdit) {
+        await api.put(`/entries/${editEntry.id}`, form);
+      } else {
+        await api.post('/entries', form);
+      }
       onCreated();
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create entry.');
+      setError(err.response?.data?.error || (isEdit ? 'Failed to update entry.' : 'Failed to create entry.'));
     } finally {
       setSubmitting(false);
     }
@@ -54,7 +63,7 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
     <div className="modal-overlay">
       <div className="modal">
         <div className="modal-header">
-          <h3>{t.addNewEntry}</h3>
+          <h3>{isEdit ? t.editEntry : t.addNewEntry}</h3>
           <button className="btn-close" onClick={onClose}>X</button>
         </div>
 
@@ -125,7 +134,7 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType }) {
           <div className="form-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? t.saving : t.addEntry}
+              {submitting ? t.saving : (isEdit ? t.saveChanges : t.addEntry)}
             </button>
           </div>
         </form>

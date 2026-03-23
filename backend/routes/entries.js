@@ -666,6 +666,44 @@ router.post('/resequence', requireAdmin, async (req, res) => {
   }
 });
 
+// PUT /api/entries/:id - edit entry (admin only)
+router.put('/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { newsLink, entryDate, entryTime, districtId, gist, sourceOfComplaint, mediaType } = req.body;
+
+    const entryRef = db.collection('entries').doc(id);
+    const entrySnap = await entryRef.get();
+    if (!entrySnap.exists) {
+      return res.status(404).json({ error: 'Entry not found.' });
+    }
+
+    const updates = {};
+    if (newsLink !== undefined) updates.newsLink = newsLink;
+    if (entryDate !== undefined) updates.entryDate = entryDate;
+    if (entryTime !== undefined) updates.entryTime = entryTime;
+    if (districtId !== undefined) updates.districtId = districtId;
+    if (gist !== undefined) updates.gist = gist;
+    if (sourceOfComplaint !== undefined) updates.sourceOfComplaint = sourceOfComplaint;
+    if (mediaType !== undefined) {
+      const prefix = MEDIA_TYPE_PREFIX[mediaType];
+      if (!prefix) return res.status(400).json({ error: 'Invalid media type.' });
+      updates.mediaType = mediaType;
+      // Update complaintId prefix
+      const existing = entrySnap.data();
+      updates.complaintId = prefix + '-' + String(existing.sno).padStart(3, '0');
+    }
+    updates.updatedAt = new Date().toISOString();
+
+    await entryRef.update(updates);
+    invalidateStatsCache();
+    res.json({ message: 'Entry updated successfully.', ...updates });
+  } catch (err) {
+    console.error('Update entry error:', err);
+    res.status(500).json({ error: 'Failed to update entry.' });
+  }
+});
+
 // DELETE /api/entries/:id - delete entry (admin only)
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
