@@ -257,10 +257,6 @@ export default function EntryTable({ entries, user, onDelete, onReply, onFillCon
                         onClick={() => setReportEntry(entry)}>{t.report}</button>
                     )}
 
-                    {user.role === 'admin' && (
-                      <button className="btn btn-sm btn-danger"
-                        onClick={() => onDelete(entry.id)}>{t.delete}</button>
-                    )}
                   </td>
                 </tr>
               );

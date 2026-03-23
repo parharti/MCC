@@ -96,16 +96,6 @@ export default function Entries() {
     fetchEntries();
   }, [fetchEntries]);
 
-  async function handleDelete(id) {
-    if (!window.confirm(t.confirmDelete)) return;
-    try {
-      await api.delete(`/entries/${id}`);
-      fetchEntries();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to delete entry.');
-    }
-  }
-
   function handleEntryCreated() {
     setShowEntryForm(false);
     fetchEntries();
@@ -221,7 +211,7 @@ export default function Entries() {
             return e.status === statusFilter;
           })}
           user={user}
-          onDelete={handleDelete}
+
           onReply={entry => setReplyModal(entry)}
           onFillConstituency={entry => setConstituencyModal(entry)}
           onRefresh={fetchEntries}
