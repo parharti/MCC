@@ -64,7 +64,7 @@ router.post('/login', async (req, res) => {
     return res.status(400).json({ error: 'Invalid role.' });
   } catch (err) {
     console.error('Login error:', err);
-    res.status(500).json({ error: 'Server error during login.' });
+    res.status(500).json({ error: 'Server error during login.', detail: err.message });
   }
 });
 
