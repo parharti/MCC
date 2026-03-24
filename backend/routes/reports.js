@@ -1,19 +1,15 @@
 const express = require('express');
 const router = express.Router();
-const { db } = require('../config/firebase');
+const Entry = require('../models/Entry');
 const { requireAdmin } = require('../middleware/auth');
 
 // GET /api/reports - get all closed entries for report (admin only)
 router.get('/', requireAdmin, async (req, res) => {
   try {
-    const snapshot = await db.collection('entries')
-      .where('status', '==', 'Closed')
-      .get();
+    let entries = await Entry.find({ status: 'Closed' }).lean();
 
-    const entries = [];
-    snapshot.forEach(doc => {
-      entries.push({ id: doc.id, ...doc.data() });
-    });
+    // Map _id to id for frontend compatibility
+    entries = entries.map(e => ({ id: e._id.toString(), ...e, _id: undefined }));
 
     // Filter by mediaType if specified
     const mediaTypeFilter = req.query.mediaType;

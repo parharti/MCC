@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const path = require('path');
+const { connectDB, getConnectionStatus } = require('./config/mongodb');
 
 const authRoutes = require('./routes/auth');
 const entryRoutes = require('./routes/entries');
@@ -32,9 +33,13 @@ app.use('/api/districts', districtRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  const { isConnected, connectError } = getConnectionStatus();
+  res.json({ status: 'ok', timestamp: new Date().toISOString(), mongoOk: isConnected, mongoError: connectError });
 });
 
-app.listen(PORT, () => {
-  console.log(`ECI Media Monitoring Backend running on port ${PORT}`);
+// Connect to MongoDB then start server
+connectDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`ECI Media Monitoring Backend running on port ${PORT}`);
+  });
 });

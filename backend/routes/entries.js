@@ -1,7 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { db } = require('../config/firebase');
+const mongoose = require('mongoose');
+const Entry = require('../models/Entry');
+const Counter = require('../models/Counter');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { uploadPhoto, deleteEntryPhotos } = require('../services/storageService');
 const XLSX = require('xlsx');
@@ -24,33 +26,29 @@ const GLOBAL_COUNTER = 'entries';
 router.get('/', requireAuth, async (req, res) => {
   try {
     const user = req.user;
-    let query;
+    let filter = {};
 
     if (user.role === 'district') {
-      query = db.collection('entries').where('districtId', '==', user.districtId);
+      filter.districtId = user.districtId;
     } else if (req.query.districtId) {
-      // Admin filtering by specific district
-      query = db.collection('entries').where('districtId', '==', req.query.districtId);
-    } else {
-      query = db.collection('entries');
+      filter.districtId = req.query.districtId;
     }
 
-    const snapshot = await query.get();
-    const entries = [];
-    snapshot.forEach(doc => {
-      entries.push({ id: doc.id, ...doc.data() });
-    });
+    let entries = await Entry.find(filter).lean();
 
     // Filter by mediaType if specified
     const mediaTypeFilter = req.query.mediaType;
-    const filtered = mediaTypeFilter
-      ? entries.filter(e => (e.mediaType || 'social_media') === mediaTypeFilter)
-      : entries;
+    if (mediaTypeFilter) {
+      entries = entries.filter(e => (e.mediaType || 'social_media') === mediaTypeFilter);
+    }
 
-    // Sort client-side to avoid composite index requirement
-    filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Sort by createdAt descending
+    entries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-    res.json({ entries: filtered });
+    // Map _id to id for frontend compatibility
+    entries = entries.map(e => ({ id: e._id.toString(), ...e, _id: undefined }));
+
+    res.json({ entries });
   } catch (err) {
     console.error('Get entries error:', err);
     res.status(500).json({ error: 'Failed to fetch entries.' });
@@ -67,9 +65,7 @@ router.get('/stats', requireAuth, async (req, res) => {
     if (statsCache.data && (cacheNow - statsCache.timestamp) < STATS_CACHE_TTL) {
       allEntries = statsCache.data;
     } else {
-      const snapshot = await db.collection('entries').get();
-      allEntries = [];
-      snapshot.forEach(doc => allEntries.push(doc.data()));
+      allEntries = await Entry.find().lean();
       statsCache = { data: allEntries, timestamp: cacheNow };
     }
 
@@ -77,7 +73,6 @@ router.get('/stats', requireAuth, async (req, res) => {
     const TWENTY_FOUR_HRS = 24 * 60 * 60 * 1000;
 
     if (user.role === 'admin') {
-      // District-wise breakdown for admin (with per-media-type status)
       const emptyMediaStats = () => ({ total: 0, pending: 0, replied: 0, closed: 0, overdue: 0 });
       const districtStats = {};
       allEntries.forEach(entry => {
@@ -94,7 +89,6 @@ router.get('/stats', requireAuth, async (req, res) => {
         const mt = entry.mediaType || 'social_media';
         const mds = ds[mt] || ds.social_media;
 
-        // Overall district totals
         ds.total++;
         if (entry.status === 'Pending') ds.pending++;
         else if (entry.status === 'Replied') ds.replied++;
@@ -103,7 +97,6 @@ router.get('/stats', requireAuth, async (req, res) => {
           ds.overdue++;
         }
 
-        // Per media type totals
         mds.total++;
         if (entry.status === 'Pending') mds.pending++;
         else if (entry.status === 'Replied') mds.replied++;
@@ -121,7 +114,6 @@ router.get('/stats', requireAuth, async (req, res) => {
         overdue: allEntries.filter(e => e.status !== 'Closed' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
       };
 
-      // Media type breakdown
       const mediaTypeStats = { social_media: { total: 0 }, print_media: { total: 0 }, electronic_media: { total: 0 } };
       allEntries.forEach(entry => {
         const mt = entry.mediaType || 'social_media';
@@ -130,7 +122,6 @@ router.get('/stats', requireAuth, async (req, res) => {
 
       res.json({ overall, districtStats, mediaTypeStats });
     } else {
-      // Single district stats
       const myEntries = allEntries.filter(e => e.districtId === user.districtId);
       const stats = {
         total: myEntries.length,
@@ -159,7 +150,6 @@ router.post('/', requireAuth, async (req, res) => {
 
     const mediaType = reqMediaType || 'social_media';
 
-    // District users can only add entries for their own district
     const districtId = req.user.role === 'district' ? req.user.districtId : bodyDistrictId;
 
     if (!entryDate || !districtId || !gist || !sourceOfComplaint) {
@@ -173,47 +163,42 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid media type.' });
     }
 
-    // Auto-generate complaint ID using a Firestore transaction to prevent race conditions
-    // Global counter shared across all media types
-    const result = await db.runTransaction(async (t) => {
-      const counterRef = db.collection('counters').doc(GLOBAL_COUNTER);
-      const counterSnap = await t.get(counterRef);
-      const counterVal = counterSnap.exists ? counterSnap.data().count : 0;
+    // Atomically increment counter using findOneAndUpdate
+    const counter = await Counter.findOneAndUpdate(
+      { _id: GLOBAL_COUNTER },
+      { $inc: { count: 1 } },
+      { new: true, upsert: true }
+    );
 
-      let sno = counterVal + 1;
-      const complaintId = prefix + '-' + String(sno).padStart(3, '0');
+    const sno = counter.count;
+    const complaintId = prefix + '-' + String(sno).padStart(3, '0');
 
-      const entryData = {
-        sno,
-        complaintId,
-        mediaType,
-        newsLink: newsLink || '',
-        entryDate,
-        entryTime,
-        districtId,
-        constituency: constituency || '',
-        gist,
-        sourceOfComplaint,
-        addedBy: req.user.role === 'admin' ? 'Admin' : (req.user.districtName || req.user.districtId),
-        status: 'Pending',
-        remark: '',
-        immediateReply: '',
-        repliedLink: '',
-        finalReply: '',
-        evidencePhotos: [],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
+    const entryData = {
+      sno,
+      complaintId,
+      mediaType,
+      newsLink: newsLink || '',
+      entryDate,
+      entryTime,
+      districtId,
+      constituency: constituency || '',
+      gist,
+      sourceOfComplaint,
+      addedBy: req.user.role === 'admin' ? 'Admin' : (req.user.districtName || req.user.districtId),
+      status: 'Pending',
+      remark: '',
+      immediateReply: '',
+      repliedLink: '',
+      finalReply: '',
+      evidencePhotos: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
 
-      const entryRef = db.collection('entries').doc();
-      t.set(entryRef, entryData);
-      t.set(counterRef, { count: sno });
-
-      return { id: entryRef.id, ...entryData };
-    });
+    const entry = await Entry.create(entryData);
 
     invalidateStatsCache();
-    res.status(201).json(result);
+    res.status(201).json({ id: entry._id.toString(), ...entryData });
   } catch (err) {
     console.error('Create entry error:', err);
     res.status(500).json({ error: 'Failed to create entry.' });
@@ -235,7 +220,7 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
 
-    // Handle merged cells - fill merged ranges with the top-left value
+    // Handle merged cells
     if (sheet['!merges']) {
       for (const merge of sheet['!merges']) {
         const startCell = XLSX.utils.encode_cell({ r: merge.s.r, c: merge.s.c });
@@ -251,10 +236,8 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       }
     }
 
-    // Helper: format any date value to YYYY-MM-DD
     function formatDate(val) {
       if (!val) return '';
-      // Try parsing as Date object first
       const d = new Date(val);
       if (!isNaN(d.getTime())) {
         const y = d.getFullYear();
@@ -263,13 +246,11 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         return `${y}-${m}-${day}`;
       }
       const str = String(val).trim();
-      // DD-MM-YYYY or DD/MM/YYYY
       const match = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
       if (match) return `${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
       return str;
     }
 
-    // Find the header row (look for a row containing "District" or "Gist")
     const range = XLSX.utils.decode_range(sheet['!ref']);
     let headerRow = 0;
     for (let r = 0; r <= Math.min(5, range.e.r); r++) {
@@ -286,7 +267,6 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
 
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', range: headerRow });
 
-    // Filter out sub-header rows and empty rows
     const dataRows = rows.filter(row => {
       const vals = Object.values(row).map(v => String(v).trim().toLowerCase());
       if (vals.includes('immediate reply') || vals.includes('final reply')) return false;
@@ -299,10 +279,8 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
 
     if (dataRows.length === 0) return res.status(400).json({ error: 'Excel file is empty or headers not found.' });
 
-    // Use dataRows instead of rows
     const rows2 = dataRows;
 
-    // Known column mappings (case-insensitive, handles typos)
     const knownMap = {
       'news link': 'newsLink',
       'news links': 'newsLink',
@@ -328,8 +306,6 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       'sl.no': '_sno',
     };
 
-    // Counter will be read inside the transaction to prevent race conditions
-
     const { districts } = require('../data/districts');
     const districtLookup = {};
     districts.forEach(d => {
@@ -339,90 +315,50 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       districtLookup[d.name.toLowerCase().replace(/\s+/g, '')] = d.id;
     });
 
-    // Common alternate names, Tamil transliterations, abbreviations, and typos
     const districtAliases = {
-      // Coimbatore
       'kovai': 'coimbatore', 'cbe': 'coimbatore', 'coimbathore': 'coimbatore', 'kovaai': 'coimbatore',
-      // Tiruvallur
       'thiruvallur': 'tiruvallur', 'thirullavi': 'tiruvallur', 'thirullavar': 'tiruvallur', 'tiruvallore': 'tiruvallur',
-      // Chennai
       'madras': 'chennai', 'chennnai': 'chennai', 'cennai': 'chennai',
-      // Tiruchirappalli
       'trichy': 'tiruchirappalli', 'tiruchi': 'tiruchirappalli', 'trichirappalli': 'tiruchirappalli', 'tiruchy': 'tiruchirappalli', 'tiruchchirapalli': 'tiruchirappalli',
-      // Thoothukudi
       'tuticorin': 'thoothukudi', 'thoothukudi(tuticorin)': 'thoothukudi', 'thoothukkudi': 'thoothukudi', 'tuticorn': 'thoothukudi',
-      // Kanchipuram
       'kanchi': 'kanchipuram', 'kancheepuram': 'kanchipuram', 'kaanchipuram': 'kanchipuram',
-      // Kanyakumari
       'kanniyakumari': 'kanyakumari', 'kk': 'kanyakumari', 'nagercoil': 'kanyakumari',
-      // Thanjavur
       'tanjore': 'thanjavur', 'thanjaavur': 'thanjavur', 'thanjur': 'thanjavur',
-      // Madurai
       'mathurai': 'madurai', 'maduai': 'madurai',
-      // Tirunelveli
       'nellai': 'tirunelveli', 'thirunelveli': 'tirunelveli', 'tinnevelly': 'tirunelveli',
-      // Tiruvannamalai
       'thiruvannamalai': 'tiruvannamalai', 'tiruvannamalai ': 'tiruvannamalai', 'thiruvannamalai ': 'tiruvannamalai',
-      // Salem
       'selem': 'salem',
-      // Erode
       'eerode': 'erode', 'eroad': 'erode',
-      // Vellore
       'vellur': 'vellore', 'velloor': 'vellore',
-      // Cuddalore
       'cudalur': 'cuddalore', 'cuddlore': 'cuddalore', 'kadalore': 'cuddalore',
-      // Dharmapuri
       'dharmapuri ': 'dharmapuri', 'dharmaburi': 'dharmapuri',
-      // Krishnagiri
       'krishnagri': 'krishnagiri', 'kirushnagiri': 'krishnagiri',
-      // Ramanathapuram
       'ramnad': 'ramanathapuram', 'ramnathapuram': 'ramanathapuram', 'ramanathpuram': 'ramanathapuram',
-      // Sivagangai
       'sivaganga': 'sivagangai', 'sivagagai': 'sivagangai',
-      // Viluppuram
       'villupuram': 'viluppuram', 'vizhuppuram': 'viluppuram', 'vilupuram': 'viluppuram',
-      // Virudhunagar
       'virudunagar': 'virudhunagar', 'virudhunager': 'virudhunagar',
-      // Nilgiris
       'nilgiri': 'nilgiris', 'ooty': 'nilgiris', 'udhagai': 'nilgiris', 'neelagiri': 'nilgiris',
-      // Nagapattinam
       'nagapatnam': 'nagapattinam', 'nagapatinam': 'nagapattinam',
-      // Mayiladuthurai
       'mayuram': 'mayiladuthurai', 'mayiladhuthurai': 'mayiladuthurai',
-      // Tiruppur
       'thiruppur': 'tiruppur', 'tirupur': 'tiruppur',
-      // Tirupathur
       'thirupathur': 'tirupathur', 'tirupattur': 'tirupathur',
-      // Tiruvarur
       'thiruvarur': 'tiruvarur', 'thiruvaroor': 'tiruvarur',
-      // Chengalpattu
       'chengalpet': 'chengalpattu', 'chengalpatu': 'chengalpattu', 'chengalput': 'chengalpattu',
-      // Pudukkottai
       'pudukottai': 'pudukkottai', 'pudukkotai': 'pudukkottai',
-      // Kallakurichi
       'kalakurichi': 'kallakurichi', 'kallakurchi': 'kallakurichi',
-      // Ranipet
       'ranipettai': 'ranipet',
-      // Perambalur
       'perambaloor': 'perambalur',
-      // Dindigul
       'dindugal': 'dindigul', 'dindukkal': 'dindigul',
-      // Namakkal
       'namakal': 'namakkal',
-      // Karur
       'karoor': 'karur',
-      // Tenkasi
       'thenkasi': 'tenkasi',
-      // Theni
       'theni ': 'theni',
-      // Ariyalur
       'ariyaloor': 'ariyalur',
     };
     Object.entries(districtAliases).forEach(([alias, id]) => {
       districtLookup[alias.trim().toLowerCase()] = id;
     });
 
-    // Helper: parse "Chennai (Aminjikarai)" → { district: "chennai", constituency: "Aminjikarai" }
     function parseDistrictField(val) {
       if (!val) return { district: '', constituency: '' };
       const match = val.match(/^([^(]+?)(?:\s*\(([^)]+)\))?\s*$/);
@@ -441,11 +377,9 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
     let lastSource = '';
 
     // Load existing entries for duplicate check
-    const existingSnap = await db.collection('entries').get();
+    const existingEntries = await Entry.find({}, { districtId: 1, entryDate: 1, gist: 1, newsLink: 1 }).lean();
     const existingSet = new Set();
-    existingSnap.forEach(doc => {
-      const e = doc.data();
-      // Key by gist + district + date + newsLink
+    existingEntries.forEach(e => {
       existingSet.add(`${e.districtId}||${e.entryDate}||${e.gist}||${e.newsLink}`);
     });
 
@@ -453,7 +387,6 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       const row = rows2[i];
       const mapped = {};
 
-      // Map columns
       for (const [col, val] of Object.entries(row)) {
         const key = knownMap[col.toLowerCase().trim()];
         if (key) {
@@ -461,7 +394,6 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         }
       }
 
-      // Carry forward merged cell values
       if (mapped.districtId) lastDistrict = mapped.districtId;
       else mapped.districtId = lastDistrict;
 
@@ -474,10 +406,8 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       if (mapped.sourceOfComplaint) lastSource = mapped.sourceOfComplaint;
       else mapped.sourceOfComplaint = lastSource;
 
-      // Skip empty rows
       if (!mapped.gist && !mapped.newsLink && !mapped.districtId) continue;
 
-      // Parse district field - may contain constituency like "Chennai (Aminjikarai)"
       let parsedConstituency = mapped.constituency || '';
       if (mapped.districtId) {
         const parsed = parseDistrictField(mapped.districtId);
@@ -487,7 +417,6 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         }
       }
 
-      // Resolve district name to ID
       if (mapped.districtId) {
         const resolved = districtLookup[mapped.districtId.toLowerCase()]
           || districtLookup[mapped.districtId.toLowerCase().replace(/\s+/g, '')];
@@ -502,7 +431,6 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         continue;
       }
 
-      // If no gist but has a link, use link as gist
       if (!mapped.gist && mapped.newsLink) {
         mapped.gist = mapped.newsLink;
       }
@@ -512,7 +440,6 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         continue;
       }
 
-      // Format date before dupe check so it matches DB format (YYYY-MM-DD)
       const formattedDate = formatDate(mapped.entryDate) || '';
       const dupeKey = `${mapped.districtId}||${formattedDate}||${mapped.gist}||${mapped.newsLink || ''}`;
       if (existingSet.has(dupeKey)) {
@@ -521,10 +448,8 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       }
       existingSet.add(dupeKey);
 
-      // Store parsed constituency
       mapped.constituency = parsedConstituency;
 
-      // Collect valid entry data (sno and complaintId assigned in transaction)
       validEntries.push({
         mediaType,
         newsLink: mapped.newsLink || '',
@@ -546,37 +471,27 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
       });
     }
 
-    // Write all valid entries using Firestore transactions for atomicity
-    // Batch into groups of 400 to stay within the 500 write limit per transaction
-    const BATCH_LIMIT = 400;
-    const batches = [];
-    for (let i = 0; i < validEntries.length; i += BATCH_LIMIT) {
-      batches.push(validEntries.slice(i, i + BATCH_LIMIT));
-    }
+    // Atomically get the starting counter value
+    const counter = await Counter.findOneAndUpdate(
+      { _id: GLOBAL_COUNTER },
+      { $inc: { count: validEntries.length } },
+      { new: true, upsert: true }
+    );
 
+    const startSno = counter.count - validEntries.length;
     const created = [];
 
-    for (const batch of batches) {
-      const result = await db.runTransaction(async (t) => {
-        const counterRef = db.collection('counters').doc(GLOBAL_COUNTER);
-        const counterSnap = await t.get(counterRef);
-        const counterVal = counterSnap.exists ? counterSnap.data().count : 0;
+    // Assign sno and complaintId, then bulk insert
+    const docsToInsert = validEntries.map((entry, idx) => {
+      const sno = startSno + idx + 1;
+      entry.sno = sno;
+      entry.complaintId = prefix + '-' + String(sno).padStart(3, '0');
+      created.push(entry.complaintId);
+      return entry;
+    });
 
-        let sno = counterVal;
-
-        const batchCreated = [];
-        for (const entry of batch) {
-          sno++;
-          entry.sno = sno;
-          entry.complaintId = prefix + '-' + String(sno).padStart(3, '0');
-          const ref = db.collection('entries').doc();
-          t.set(ref, entry);
-          batchCreated.push(entry.complaintId);
-        }
-        t.set(counterRef, { count: sno });
-        return batchCreated;
-      });
-      created.push(...result);
+    if (docsToInsert.length > 0) {
+      await Entry.insertMany(docsToInsert);
     }
 
     invalidateStatsCache();
@@ -593,26 +508,28 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
   }
 });
 
-// POST /api/entries/sync-counter - sync counters per media type with actual max sno (admin only)
+// POST /api/entries/sync-counter - sync counter with actual max sno (admin only)
 router.post('/sync-counter', requireAdmin, async (req, res) => {
   try {
-    const snapshot = await db.collection('entries').get();
-    let maxSno = 0;
-    snapshot.forEach(doc => {
-      const s = doc.data().sno || 0;
-      if (s > maxSno) maxSno = s;
-    });
+    const result = await Entry.aggregate([{ $group: { _id: null, maxSno: { $max: '$sno' } } }]);
+    const maxSno = result.length > 0 ? result[0].maxSno : 0;
 
-    const counterRef = db.collection('counters').doc(GLOBAL_COUNTER);
-    const counterSnap = await counterRef.get();
-    const oldCount = counterSnap.exists ? counterSnap.data().count : 0;
-    await counterRef.set({ count: maxSno });
+    const counterDoc = await Counter.findById(GLOBAL_COUNTER);
+    const oldCount = counterDoc ? counterDoc.count : 0;
+
+    await Counter.findOneAndUpdate(
+      { _id: GLOBAL_COUNTER },
+      { count: maxSno },
+      { upsert: true }
+    );
+
+    const totalEntries = await Entry.countDocuments();
 
     res.json({
       message: 'Counter synced.',
       previousCount: oldCount,
       newCount: maxSno,
-      totalEntries: snapshot.size
+      totalEntries
     });
   } catch (err) {
     console.error('Sync counter error:', err);
@@ -620,40 +537,31 @@ router.post('/sync-counter', requireAdmin, async (req, res) => {
   }
 });
 
-// POST /api/entries/resequence - renumber all entries sequentially with global counter (admin only)
+// POST /api/entries/resequence - renumber all entries sequentially (admin only)
 router.post('/resequence', requireAdmin, async (req, res) => {
   try {
-    const snapshot = await db.collection('entries').get();
-    if (snapshot.empty) {
-      await db.collection('counters').doc(GLOBAL_COUNTER).set({ count: 0 });
+    const allEntries = await Entry.find().sort({ createdAt: 1 }).lean();
+
+    if (allEntries.length === 0) {
+      await Counter.findOneAndUpdate({ _id: GLOBAL_COUNTER }, { count: 0 }, { upsert: true });
       return res.json({ message: 'No entries to resequence.', totalEntries: 0, newCount: 0 });
     }
 
-    // Sort all entries by createdAt globally
-    const allEntries = [];
-    snapshot.forEach(doc => allEntries.push({ id: doc.id, ...doc.data() }));
-    allEntries.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    const bulkOps = allEntries.map((entry, idx) => {
+      const newSno = idx + 1;
+      const mt = entry.mediaType || 'social_media';
+      const pfx = MEDIA_TYPE_PREFIX[mt] || 'SM';
+      const newComplaintId = pfx + '-' + String(newSno).padStart(3, '0');
+      return {
+        updateOne: {
+          filter: { _id: entry._id },
+          update: { $set: { sno: newSno, complaintId: newComplaintId, updatedAt: new Date().toISOString() } }
+        }
+      };
+    });
 
-    const BATCH_LIMIT = 400;
-    for (let i = 0; i < allEntries.length; i += BATCH_LIMIT) {
-      const batch = db.batch();
-      const chunk = allEntries.slice(i, i + BATCH_LIMIT);
-      for (let j = 0; j < chunk.length; j++) {
-        const entry = chunk[j];
-        const newSno = i + j + 1;
-        const mt = entry.mediaType || 'social_media';
-        const pfx = MEDIA_TYPE_PREFIX[mt] || 'SM';
-        const newComplaintId = pfx + '-' + String(newSno).padStart(3, '0');
-        batch.update(db.collection('entries').doc(entry.id), {
-          sno: newSno,
-          complaintId: newComplaintId,
-          updatedAt: new Date().toISOString()
-        });
-      }
-      await batch.commit();
-    }
-
-    await db.collection('counters').doc(GLOBAL_COUNTER).set({ count: allEntries.length });
+    await Entry.bulkWrite(bulkOps);
+    await Counter.findOneAndUpdate({ _id: GLOBAL_COUNTER }, { count: allEntries.length }, { upsert: true });
 
     res.json({
       message: `Resequenced ${allEntries.length} entries globally.`,
@@ -672,9 +580,8 @@ router.put('/:id', requireAdmin, async (req, res) => {
     const { id } = req.params;
     const { newsLink, entryDate, entryTime, districtId, gist, sourceOfComplaint, mediaType } = req.body;
 
-    const entryRef = db.collection('entries').doc(id);
-    const entrySnap = await entryRef.get();
-    if (!entrySnap.exists) {
+    const entry = await Entry.findById(id);
+    if (!entry) {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
@@ -689,13 +596,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
       const prefix = MEDIA_TYPE_PREFIX[mediaType];
       if (!prefix) return res.status(400).json({ error: 'Invalid media type.' });
       updates.mediaType = mediaType;
-      // Update complaintId prefix
-      const existing = entrySnap.data();
-      updates.complaintId = prefix + '-' + String(existing.sno).padStart(3, '0');
+      updates.complaintId = prefix + '-' + String(entry.sno).padStart(3, '0');
     }
     updates.updatedAt = new Date().toISOString();
 
-    await entryRef.update(updates);
+    await Entry.findByIdAndUpdate(id, updates);
     invalidateStatsCache();
     res.json({ message: 'Entry updated successfully.', ...updates });
   } catch (err) {
@@ -708,38 +613,33 @@ router.put('/:id', requireAdmin, async (req, res) => {
 router.delete('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const doc = await db.collection('entries').doc(id).get();
-    if (!doc.exists) {
+    const doc = await Entry.findById(id);
+    if (!doc) {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
-    // Delete associated photos from storage
     await deleteEntryPhotos(id);
-    await db.collection('entries').doc(id).delete();
+    await Entry.findByIdAndDelete(id);
 
-    // Resequence all remaining entries globally so IDs stay continuous
-    const remaining = await db.collection('entries').get();
-    const entries = [];
-    remaining.forEach(d => entries.push({ id: d.id, ...d.data() }));
-    entries.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    // Resequence remaining entries
+    const entries = await Entry.find().sort({ createdAt: 1 }).lean();
 
-    const BATCH_LIMIT = 400;
-    for (let i = 0; i < entries.length; i += BATCH_LIMIT) {
-      const batch = db.batch();
-      const chunk = entries.slice(i, i + BATCH_LIMIT);
-      for (let j = 0; j < chunk.length; j++) {
-        const entry = chunk[j];
-        const newSno = i + j + 1;
+    if (entries.length > 0) {
+      const bulkOps = entries.map((entry, idx) => {
+        const newSno = idx + 1;
         const mt = entry.mediaType || 'social_media';
         const pfx = MEDIA_TYPE_PREFIX[mt] || 'SM';
-        batch.update(db.collection('entries').doc(entry.id), {
-          sno: newSno,
-          complaintId: pfx + '-' + String(newSno).padStart(3, '0')
-        });
-      }
-      await batch.commit();
+        return {
+          updateOne: {
+            filter: { _id: entry._id },
+            update: { $set: { sno: newSno, complaintId: pfx + '-' + String(newSno).padStart(3, '0') } }
+          }
+        };
+      });
+      await Entry.bulkWrite(bulkOps);
     }
-    await db.collection('counters').doc(GLOBAL_COUNTER).set({ count: entries.length });
+
+    await Counter.findOneAndUpdate({ _id: GLOBAL_COUNTER }, { count: entries.length }, { upsert: true });
 
     invalidateStatsCache();
     res.json({ message: 'Entry deleted successfully.' });
@@ -756,10 +656,10 @@ router.put('/:id/time', requireAdmin, async (req, res) => {
     const { entryTime } = req.body;
     if (!entryTime) return res.status(400).json({ error: 'Time is required.' });
 
-    const doc = await db.collection('entries').doc(id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Entry not found.' });
+    const doc = await Entry.findById(id);
+    if (!doc) return res.status(404).json({ error: 'Entry not found.' });
 
-    await db.collection('entries').doc(id).update({ entryTime, updatedAt: new Date().toISOString() });
+    await Entry.findByIdAndUpdate(id, { entryTime, updatedAt: new Date().toISOString() });
     res.json({ message: 'Time updated.' });
   } catch (err) {
     console.error('Update time error:', err);
@@ -778,11 +678,10 @@ router.put('/:id/constituency', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Only district officers can update constituency.' });
     }
 
-    const doc = await db.collection('entries').doc(id).get();
-    if (!doc.exists) return res.status(404).json({ error: 'Entry not found.' });
+    const doc = await Entry.findById(id);
+    if (!doc) return res.status(404).json({ error: 'Entry not found.' });
 
-    const entry = doc.data();
-    if (entry.districtId !== user.districtId) {
+    if (doc.districtId !== user.districtId) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
@@ -790,11 +689,7 @@ router.put('/:id/constituency', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Constituency is required.' });
     }
 
-    await db.collection('entries').doc(id).update({
-      constituency,
-      updatedAt: new Date().toISOString()
-    });
-
+    await Entry.findByIdAndUpdate(id, { constituency, updatedAt: new Date().toISOString() });
     res.json({ message: 'Constituency updated.' });
   } catch (err) {
     console.error('Update constituency error:', err);
@@ -809,27 +704,20 @@ router.put('/:id/remark', requireAuth, async (req, res) => {
     const { remark } = req.body;
     const user = req.user;
 
-    const doc = await db.collection('entries').doc(id).get();
-    if (!doc.exists) {
+    const doc = await Entry.findById(id);
+    if (!doc) {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
-    const entry = doc.data();
-
-    if (entry.status === 'Closed') {
+    if (doc.status === 'Closed') {
       return res.status(400).json({ error: 'Cannot edit remarks on closed entries.' });
     }
 
-    // District officers can only edit their own district
-    if (user.role === 'district' && entry.districtId !== user.districtId) {
+    if (user.role === 'district' && doc.districtId !== user.districtId) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    await db.collection('entries').doc(id).update({
-      remark,
-      updatedAt: new Date().toISOString()
-    });
-
+    await Entry.findByIdAndUpdate(id, { remark, updatedAt: new Date().toISOString() });
     res.json({ message: 'Remark updated.' });
   } catch (err) {
     console.error('Update remark error:', err);
@@ -848,18 +736,16 @@ router.put('/:id/immediate-reply', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Only district officers can submit replies.' });
     }
 
-    const doc = await db.collection('entries').doc(id).get();
-    if (!doc.exists) {
+    const doc = await Entry.findById(id);
+    if (!doc) {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
-    const entry = doc.data();
-
-    if (entry.districtId !== user.districtId) {
+    if (doc.districtId !== user.districtId) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    if (entry.status !== 'Pending') {
+    if (doc.status !== 'Pending') {
       return res.status(400).json({ error: 'Immediate reply can only be submitted for pending entries.' });
     }
 
@@ -867,7 +753,7 @@ router.put('/:id/immediate-reply', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Immediate reply cannot be empty.' });
     }
 
-    await db.collection('entries').doc(id).update({
+    await Entry.findByIdAndUpdate(id, {
       immediateReply,
       status: 'Replied',
       updatedAt: new Date().toISOString()
@@ -892,20 +778,18 @@ router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (r
       return res.status(403).json({ error: 'Only district officers can submit replies.' });
     }
 
-    const doc = await db.collection('entries').doc(id).get();
-    if (!doc.exists) {
+    const doc = await Entry.findById(id);
+    if (!doc) {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
-    const entry = doc.data();
-
-    if (entry.districtId !== user.districtId) {
+    if (doc.districtId !== user.districtId) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    const entryMediaType = entry.mediaType || 'social_media';
+    const entryMediaType = doc.mediaType || 'social_media';
     const allowedStatuses = entryMediaType === 'social_media' ? ['Replied'] : ['Pending', 'Replied'];
-    if (!allowedStatuses.includes(entry.status)) {
+    if (!allowedStatuses.includes(doc.status)) {
       return res.status(400).json({ error: 'Final reply can only be submitted for replied entries.' });
     }
 
@@ -917,12 +801,11 @@ router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (r
       return res.status(400).json({ error: 'At least one evidence photo is required.' });
     }
 
-    // Upload photos in parallel to avoid timeout
     const photoUrls = await Promise.all(
       req.files.map(file => uploadPhoto(file.buffer, file.originalname, id))
     );
 
-    await db.collection('entries').doc(id).update({
+    await Entry.findByIdAndUpdate(id, {
       finalReply,
       repliedLink: repliedLink || '',
       evidencePhotos: photoUrls,
@@ -941,22 +824,21 @@ router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (r
 // GET /api/entries/backup - download full backup as JSON (admin only)
 router.get('/backup', requireAdmin, async (req, res) => {
   try {
-    const entriesSnap = await db.collection('entries').get();
-    const entries = [];
-    entriesSnap.forEach(doc => entries.push({ id: doc.id, ...doc.data() }));
+    const entries = await Entry.find().lean();
+    const mappedEntries = entries.map(e => ({ id: e._id.toString(), ...e, _id: undefined }));
 
-    const countersSnap = await db.collection('counters').get();
     const counters = {};
-    countersSnap.forEach(doc => { counters[doc.id] = doc.data(); });
+    const counterDocs = await Counter.find().lean();
+    counterDocs.forEach(doc => { counters[doc._id] = { count: doc.count }; });
 
     const backup = {
       exportedAt: new Date().toISOString(),
       totalEntries: entries.length,
       counters,
-      entries
+      entries: mappedEntries
     };
 
-    const filename = `firebase-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    const filename = `mongodb-backup-${new Date().toISOString().slice(0, 10)}.json`;
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Type', 'application/json');
     res.json(backup);

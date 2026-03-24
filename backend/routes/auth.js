@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
-const { db } = require('../config/firebase');
+const User = require('../models/User');
 const { districts } = require('../data/districts');
 
 const JWT_SECRET = process.env.JWT_SECRET || process.env.SESSION_SECRET || 'eci-tn-secret-2026';
@@ -17,13 +17,11 @@ router.post('/login', async (req, res) => {
     }
 
     if (role === 'admin') {
-      // Check admin credentials
-      const adminDoc = await db.collection('users').doc('admin').get();
-      if (!adminDoc.exists) {
+      const adminDoc = await User.findById('admin');
+      if (!adminDoc) {
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
-      const adminData = adminDoc.data();
-      const adminMatch = await bcrypt.compare(password, adminData.password);
+      const adminMatch = await bcrypt.compare(password, adminDoc.password);
       if (!adminMatch) {
         return res.status(401).json({ error: 'Invalid password.' });
       }
@@ -36,18 +34,15 @@ router.post('/login', async (req, res) => {
       if (!districtId) {
         return res.status(400).json({ error: 'District selection is required.' });
       }
-      // Validate district exists
       const district = districts.find(d => d.id === districtId);
       if (!district) {
         return res.status(400).json({ error: 'Invalid district.' });
       }
-      // Check district credentials
-      const districtDoc = await db.collection('users').doc(districtId).get();
-      if (!districtDoc.exists) {
+      const districtDoc = await User.findById(districtId);
+      if (!districtDoc) {
         return res.status(401).json({ error: 'Invalid credentials.' });
       }
-      const districtData = districtDoc.data();
-      const districtMatch = await bcrypt.compare(password, districtData.password);
+      const districtMatch = await bcrypt.compare(password, districtDoc.password);
       if (!districtMatch) {
         return res.status(401).json({ error: 'Invalid password.' });
       }
@@ -70,7 +65,6 @@ router.post('/login', async (req, res) => {
 
 // POST /api/auth/logout
 router.post('/logout', (req, res) => {
-  // With JWT, logout is handled client-side by removing the token
   res.json({ message: 'Logged out successfully.' });
 });
 
@@ -83,7 +77,6 @@ router.get('/me', (req, res) => {
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    // Remove JWT metadata fields before returning user
     const { iat, exp, ...user } = decoded;
     return res.json({ user });
   } catch (err) {
@@ -120,16 +113,16 @@ router.put('/change-password', async (req, res) => {
   }
 
   try {
-    const doc = await db.collection('users').doc(user.districtId).get();
-    if (!doc.exists) return res.status(404).json({ error: 'User not found.' });
+    const doc = await User.findById(user.districtId);
+    if (!doc) return res.status(404).json({ error: 'User not found.' });
 
-    const isMatch = await bcrypt.compare(currentPassword, doc.data().password);
+    const isMatch = await bcrypt.compare(currentPassword, doc.password);
     if (!isMatch) {
       return res.status(401).json({ error: 'Current password is incorrect.' });
     }
 
     const hashedNew = await bcrypt.hash(newPassword, 10);
-    await db.collection('users').doc(user.districtId).update({ password: hashedNew });
+    await User.findByIdAndUpdate(user.districtId, { password: hashedNew });
     res.json({ message: 'Password changed successfully.' });
   } catch (err) {
     console.error('Change password error:', err);
