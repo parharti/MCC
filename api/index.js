@@ -23,8 +23,6 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), mongoOk: isConnected, mongoError: connectError });
 });
 
-const { isConnected } = getConnectionStatus();
-
 const authRoutes = require('../backend/routes/auth');
 const entryRoutes = require('../backend/routes/entries');
 const reportRoutes = require('../backend/routes/reports');
