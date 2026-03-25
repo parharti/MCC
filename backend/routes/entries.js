@@ -12,7 +12,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 
 
 // Stats cache - avoids reading all entries on every dashboard poll
 let statsCache = { data: null, timestamp: 0 };
-const STATS_CACHE_TTL = 300000; // 5 minutes
+const STATS_CACHE_TTL = 30000; // 30 seconds
 function invalidateStatsCache() { statsCache = { data: null, timestamp: 0 }; }
 
 const MEDIA_TYPE_PREFIX = {
@@ -597,7 +597,8 @@ router.post('/resequence', requireAdmin, async (req, res) => {
 router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { newsLink, entryDate, entryTime, districtId, gist, sourceOfComplaint, mediaType } = req.body;
+    const { newsLink, entryDate, entryTime, districtId, gist, sourceOfComplaint, mediaType,
+            immediateReply, finalReply, repliedLink, remark, status } = req.body;
 
     const entry = await Entry.findById(id);
     if (!entry) {
@@ -611,6 +612,11 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (districtId !== undefined) updates.districtId = districtId;
     if (gist !== undefined) updates.gist = gist;
     if (sourceOfComplaint !== undefined) updates.sourceOfComplaint = sourceOfComplaint;
+    if (immediateReply !== undefined) updates.immediateReply = immediateReply;
+    if (finalReply !== undefined) updates.finalReply = finalReply;
+    if (repliedLink !== undefined) updates.repliedLink = repliedLink;
+    if (remark !== undefined) updates.remark = remark;
+    if (status !== undefined && ['Pending', 'Replied', 'Closed'].includes(status)) updates.status = status;
     if (mediaType !== undefined) {
       const prefix = MEDIA_TYPE_PREFIX[mediaType];
       if (!prefix) return res.status(400).json({ error: 'Invalid media type.' });
@@ -744,23 +750,19 @@ router.put('/:id/remark', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/entries/:id/immediate-reply - submit immediate reply (district only)
+// PUT /api/entries/:id/immediate-reply - submit immediate reply (district or admin)
 router.put('/:id/immediate-reply', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const { immediateReply } = req.body;
     const user = req.user;
 
-    if (user.role !== 'district') {
-      return res.status(403).json({ error: 'Only district officers can submit replies.' });
-    }
-
     const doc = await Entry.findById(id);
     if (!doc) {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
-    if (doc.districtId !== user.districtId) {
+    if (user.role === 'district' && doc.districtId !== user.districtId) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
@@ -786,23 +788,19 @@ router.put('/:id/immediate-reply', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/entries/:id/final-reply - submit final reply with evidence (district only)
+// PUT /api/entries/:id/final-reply - submit final reply with evidence (district or admin)
 router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (req, res) => {
   try {
     const { id } = req.params;
     const { finalReply, repliedLink } = req.body;
     const user = req.user;
 
-    if (user.role !== 'district') {
-      return res.status(403).json({ error: 'Only district officers can submit replies.' });
-    }
-
     const doc = await Entry.findById(id);
     if (!doc) {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
-    if (doc.districtId !== user.districtId) {
+    if (user.role === 'district' && doc.districtId !== user.districtId) {
       return res.status(403).json({ error: 'Access denied.' });
     }
 

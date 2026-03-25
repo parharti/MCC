@@ -72,9 +72,6 @@ export default function Entries() {
   const [replyModal, setReplyModal] = useState(null);
   const [constituencyModal, setConstituencyModal] = useState(null);
   const [showExcelUpload, setShowExcelUpload] = useState(false);
-  const [evidenceModal, setEvidenceModal] = useState(null);
-  const [evidenceFiles, setEvidenceFiles] = useState([]);
-  const [evidenceUploading, setEvidenceUploading] = useState(false);
   const [statusFilter, setStatusFilter] = useState(statusFromUrl || 'all');
 
   const fetchEntries = useCallback(async () => {
@@ -119,28 +116,6 @@ export default function Entries() {
   function handleReplySubmitted() {
     setReplyModal(null);
     fetchEntries();
-  }
-
-  async function handleEvidenceUpload() {
-    if (evidenceFiles.length === 0) return;
-    setEvidenceUploading(true);
-    try {
-      const formData = new FormData();
-      for (const file of evidenceFiles) {
-        formData.append('photos', file);
-      }
-      await api.put(`/entries/${evidenceModal.id}/add-evidence`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 120000,
-      });
-      setEvidenceModal(null);
-      setEvidenceFiles([]);
-      fetchEntries();
-    } catch (err) {
-      alert(err.response?.data?.error || 'Failed to upload evidence.');
-    } finally {
-      setEvidenceUploading(false);
-    }
   }
 
   function clearFilter() {
@@ -229,36 +204,6 @@ export default function Entries() {
         />
       )}
 
-      {evidenceModal && (
-        <div className="modal-overlay">
-          <div className="modal">
-            <div className="modal-header">
-              <h3>Add Evidence - {evidenceModal.complaintId}</h3>
-              <button className="btn-close" onClick={() => { setEvidenceModal(null); setEvidenceFiles([]); }}>X</button>
-            </div>
-            <div className="modal-entry-info">
-              <p><strong>Gist:</strong> {evidenceModal.gist}</p>
-              <p><strong>Status:</strong> {evidenceModal.status}</p>
-              {evidenceModal.evidencePhotos?.length > 0 && (
-                <p><strong>Existing evidence:</strong> {evidenceModal.evidencePhotos.length} file(s)</p>
-              )}
-            </div>
-            <div className="form-group">
-              <label>Select Evidence Files (Photos/PDF/Docs) *</label>
-              <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt"
-                onChange={e => setEvidenceFiles(Array.from(e.target.files))} />
-              {evidenceFiles.length > 0 && <p className="file-count">{evidenceFiles.length} file(s) selected</p>}
-            </div>
-            <div className="form-actions">
-              <button className="btn btn-secondary" onClick={() => { setEvidenceModal(null); setEvidenceFiles([]); }}>Cancel</button>
-              <button className="btn btn-primary" disabled={evidenceUploading || evidenceFiles.length === 0} onClick={handleEvidenceUpload}>
-                {evidenceUploading ? 'Uploading...' : 'Upload Evidence'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {constituencyModal && (
         <ConstituencyModal
           entry={constituencyModal}
@@ -283,7 +228,6 @@ export default function Entries() {
           onEdit={entry => setEditEntry(entry)}
           onReply={entry => setReplyModal(entry)}
           onFillConstituency={entry => setConstituencyModal(entry)}
-          onAddEvidence={entry => setEvidenceModal(entry)}
           onRefresh={fetchEntries}
           mediaType={mediaType}
         />

@@ -15,10 +15,18 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
     districtId: editEntry?.districtId || (user.role === 'district' ? user.districtId : ''),
     gist: editEntry?.gist || '',
     sourceOfComplaint: editEntry?.sourceOfComplaint || '',
-    mediaType: editEntry?.mediaType || defaultMediaType || 'social_media'
+    mediaType: editEntry?.mediaType || defaultMediaType || 'social_media',
+    ...(isEdit && user.role === 'admin' ? {
+      immediateReply: editEntry?.immediateReply || '',
+      finalReply: editEntry?.finalReply || '',
+      repliedLink: editEntry?.repliedLink || '',
+      remark: editEntry?.remark || '',
+      status: editEntry?.status || 'Pending',
+    } : {})
   });
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [newEvidenceFiles, setNewEvidenceFiles] = useState([]);
 
   useEffect(() => {
     if (user.role === 'admin') {
@@ -48,6 +56,16 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
     try {
       if (isEdit) {
         await api.put(`/entries/${editEntry.id}`, form);
+        if (newEvidenceFiles.length > 0) {
+          const formData = new FormData();
+          for (const file of newEvidenceFiles) {
+            formData.append('photos', file);
+          }
+          await api.put(`/entries/${editEntry.id}/add-evidence`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 120000,
+          });
+        }
       } else {
         await api.post('/entries', form);
       }
@@ -130,6 +148,60 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
             <input type="text" name="sourceOfComplaint" value={form.sourceOfComplaint}
               onChange={handleChange} required placeholder={t.sourcePlaceholder} />
           </div>
+
+          {isEdit && user.role === 'admin' && (
+            <>
+              <hr style={{ margin: '12px 0', borderColor: '#eee' }} />
+              <h4 style={{ margin: '8px 0', color: '#555' }}>District Replies (Admin Edit)</h4>
+
+              <div className="form-group">
+                <label>Status</label>
+                <select name="status" value={form.status} onChange={handleChange}>
+                  <option value="Pending">Pending</option>
+                  <option value="Replied">Replied</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Immediate Reply</label>
+                <textarea name="immediateReply" value={form.immediateReply} onChange={handleChange}
+                  rows="2" placeholder="Immediate reply from district" />
+              </div>
+
+              <div className="form-group">
+                <label>Final Reply</label>
+                <textarea name="finalReply" value={form.finalReply} onChange={handleChange}
+                  rows="2" placeholder="Final reply from district" />
+              </div>
+
+              <div className="form-group">
+                <label>Replied Link</label>
+                <input type="url" name="repliedLink" value={form.repliedLink} onChange={handleChange}
+                  placeholder="https://..." />
+              </div>
+
+              <div className="form-group">
+                <label>Remark</label>
+                <textarea name="remark" value={form.remark} onChange={handleChange}
+                  rows="2" placeholder="Admin remark" />
+              </div>
+
+              <div className="form-group">
+                <label>Evidence Files</label>
+                {editEntry?.evidencePhotos?.length > 0 && (
+                  <p style={{ fontSize: '13px', color: '#666', margin: '4px 0' }}>
+                    Existing: {editEntry.evidencePhotos.length} file(s)
+                  </p>
+                )}
+                <input type="file" multiple accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.odt"
+                  onChange={e => setNewEvidenceFiles(Array.from(e.target.files))} />
+                {newEvidenceFiles.length > 0 && (
+                  <p className="file-count">{newEvidenceFiles.length} new file(s) selected (will be added to existing)</p>
+                )}
+              </div>
+            </>
+          )}
 
           <div className="form-actions">
             <button type="button" className="btn btn-secondary" onClick={onClose}>{t.cancel}</button>

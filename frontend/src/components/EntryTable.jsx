@@ -68,7 +68,7 @@ function StatusBadge({ status, createdAt, t, showOverdue }) {
   );
 }
 
-export default function EntryTable({ entries, user, onDelete, onEdit, onReply, onFillConstituency, onRefresh, onAddEvidence, mediaType }) {
+export default function EntryTable({ entries, user, onDelete, onEdit, onReply, onFillConstituency, onRefresh, mediaType }) {
   const [reportEntry, setReportEntry] = useState(null);
   const [editingTime, setEditingTime] = useState(null);
   const [newTime, setNewTime] = useState('');
@@ -259,8 +259,6 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
 
                     {user.role === 'admin' && (
                       <>
-                        <button className="btn btn-sm btn-action-yellow"
-                          onClick={() => onAddEvidence(entry)}>Add Evidence</button>
                         <button className="btn btn-sm btn-secondary"
                           onClick={() => onEdit(entry)}>{t.edit}</button>
                         <button className="btn btn-sm btn-danger"

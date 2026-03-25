@@ -31,6 +31,7 @@ const RANGE_OPTIONS = [
   { value: 'daily', label: 'Daily', days: 1 },
   { value: '2days', label: '2 Days', days: 2 },
   { value: 'weekly', label: 'Weekly', days: 7 },
+  { value: 'custom', label: 'Custom Range', days: 0 },
 ];
 
 function getDateRange(endDate, days) {
@@ -46,9 +47,12 @@ export default function DailyReport() {
   const mediaTypeFromUrl = searchParams.get('mediaType') || '';
   const [allEntries, setAllEntries] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const today = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState(today);
   const [rangeType, setRangeType] = useState('daily');
   const [addedByFilter, setAddedByFilter] = useState('all');
+  const [customFrom, setCustomFrom] = useState(today);
+  const [customTo, setCustomTo] = useState(today);
   const mediaTypeFilter = mediaTypeFromUrl;
 
   useEffect(() => {
@@ -72,11 +76,19 @@ export default function DailyReport() {
 
   const isSocialView = !mediaTypeFilter || mediaTypeFilter === 'social_media';
 
-  const rangeDays = RANGE_OPTIONS.find(r => r.value === rangeType)?.days || 1;
-  const { start: rangeStart, end: rangeEnd } = getDateRange(selectedDate, rangeDays);
+  let rangeStart, rangeEnd;
+  if (rangeType === 'custom') {
+    rangeStart = customFrom;
+    rangeEnd = customTo;
+  } else {
+    const rangeDays = RANGE_OPTIONS.find(r => r.value === rangeType)?.days || 1;
+    ({ start: rangeStart, end: rangeEnd } = getDateRange(selectedDate, rangeDays));
+  }
   const rangeEntries = entries.filter(e => e.entryDate >= rangeStart && e.entryDate <= rangeEnd);
 
-  const rangeLabel = rangeType === 'daily' ? selectedDate : `${rangeStart} to ${rangeEnd}`;
+  const rangeLabel = rangeType === 'daily' ? selectedDate
+    : rangeType === 'custom' ? `${customFrom} to ${customTo}`
+    : `${rangeStart} to ${rangeEnd}`;
 
   const totalAll = entries.length;
   const totalDay = rangeEntries.length;
@@ -169,8 +181,19 @@ export default function DailyReport() {
               <option value="admin">{t.addedByAdmin}</option>
               <option value="district">{t.addedByDistrict}</option>
             </select>
-            <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
-              className="date-picker" />
+            {rangeType === 'custom' ? (
+              <>
+                <label style={{ fontSize: '13px', color: '#555' }}>From:</label>
+                <input type="date" value={customFrom} onChange={e => setCustomFrom(e.target.value)}
+                  className="date-picker" />
+                <label style={{ fontSize: '13px', color: '#555' }}>To:</label>
+                <input type="date" value={customTo} onChange={e => setCustomTo(e.target.value)}
+                  className="date-picker" />
+              </>
+            ) : (
+              <input type="date" value={selectedDate} onChange={e => setSelectedDate(e.target.value)}
+                className="date-picker" />
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', gap: '10px' }}>
