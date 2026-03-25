@@ -126,18 +126,36 @@ export default function Dashboard() {
       </div>
 
       <div className="media-type-cards">
-        <div className="media-card media-card-social" onClick={() => navigate('/entries?mediaType=social_media')}>
-          <div className="summary-number">{mediaTypeStats.social_media?.total || 0}</div>
-          <div className="summary-label">{t.socialMedia}</div>
-        </div>
-        <div className="media-card media-card-print" onClick={() => navigate('/entries?mediaType=print_media')}>
-          <div className="summary-number">{mediaTypeStats.print_media?.total || 0}</div>
-          <div className="summary-label">{t.printMedia}</div>
-        </div>
-        <div className="media-card media-card-electronic" onClick={() => navigate('/entries?mediaType=electronic_media')}>
-          <div className="summary-number">{mediaTypeStats.electronic_media?.total || 0}</div>
-          <div className="summary-label">{t.electronicMedia}</div>
-        </div>
+        {[
+          { key: 'social_media', label: t.socialMedia, cls: 'media-card-social' },
+          { key: 'print_media', label: t.printMedia, cls: 'media-card-print' },
+          { key: 'electronic_media', label: t.electronicMedia, cls: 'media-card-electronic' },
+        ].map(({ key, label, cls }) => {
+          const ms = mediaTypeStats[key] || {};
+          return (
+            <div key={key} className={`media-card ${cls}`} onClick={() => navigate(`/entries?mediaType=${key}`)}>
+              <div className="summary-label" style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '8px' }}>{label}</div>
+              <div className="media-stats-grid">
+                <div className="media-stat-item">
+                  <span className="media-stat-number">{ms.total || 0}</span>
+                  <span className="media-stat-label">{t.total || 'Total'}</span>
+                </div>
+                <div className="media-stat-item">
+                  <span className="media-stat-number" style={{ color: '#e67e22' }}>{ms.pending || 0}</span>
+                  <span className="media-stat-label">{t.pending}</span>
+                </div>
+                <div className="media-stat-item">
+                  <span className="media-stat-number" style={{ color: '#3498db' }}>{ms.replied || 0}</span>
+                  <span className="media-stat-label">{t.replied}</span>
+                </div>
+                <div className="media-stat-item">
+                  <span className="media-stat-number" style={{ color: '#27ae60' }}>{ms.closed || 0}</span>
+                  <span className="media-stat-label">{t.closed}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {user.role === 'admin' && (

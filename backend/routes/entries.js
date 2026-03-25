@@ -114,10 +114,19 @@ router.get('/stats', requireAuth, async (req, res) => {
         overdue: allEntries.filter(e => e.status !== 'Closed' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
       };
 
-      const mediaTypeStats = { social_media: { total: 0 }, print_media: { total: 0 }, electronic_media: { total: 0 } };
+      const mediaTypeStats = {
+        social_media: emptyMediaStats(),
+        print_media: emptyMediaStats(),
+        electronic_media: emptyMediaStats()
+      };
       allEntries.forEach(entry => {
         const mt = entry.mediaType || 'social_media';
-        if (mediaTypeStats[mt]) mediaTypeStats[mt].total++;
+        if (mediaTypeStats[mt]) {
+          mediaTypeStats[mt].total++;
+          if (entry.status === 'Pending') mediaTypeStats[mt].pending++;
+          else if (entry.status === 'Replied') mediaTypeStats[mt].replied++;
+          else if (entry.status === 'Closed') mediaTypeStats[mt].closed++;
+        }
       });
 
       res.json({ overall, districtStats, mediaTypeStats });
@@ -130,10 +139,20 @@ router.get('/stats', requireAuth, async (req, res) => {
         closed: myEntries.filter(e => e.status === 'Closed').length,
         overdue: myEntries.filter(e => e.status !== 'Closed' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
       };
-      const mediaTypeStats = { social_media: { total: 0 }, print_media: { total: 0 }, electronic_media: { total: 0 } };
+      const emptyMS = () => ({ total: 0, pending: 0, replied: 0, closed: 0 });
+      const mediaTypeStats = {
+        social_media: emptyMS(),
+        print_media: emptyMS(),
+        electronic_media: emptyMS()
+      };
       myEntries.forEach(entry => {
         const mt = entry.mediaType || 'social_media';
-        if (mediaTypeStats[mt]) mediaTypeStats[mt].total++;
+        if (mediaTypeStats[mt]) {
+          mediaTypeStats[mt].total++;
+          if (entry.status === 'Pending') mediaTypeStats[mt].pending++;
+          else if (entry.status === 'Replied') mediaTypeStats[mt].replied++;
+          else if (entry.status === 'Closed') mediaTypeStats[mt].closed++;
+        }
       });
       res.json({ overall: stats, districtStats: {}, mediaTypeStats });
     }
@@ -818,6 +837,38 @@ router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (r
   } catch (err) {
     console.error('Final reply error:', err);
     res.status(500).json({ error: 'Failed to submit final reply.' });
+  }
+});
+
+// PUT /api/entries/:id/add-evidence - admin can add evidence photos to any entry
+router.put('/:id/add-evidence', requireAdmin, upload.array('photos', 50), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const doc = await Entry.findById(id);
+    if (!doc) {
+      return res.status(404).json({ error: 'Entry not found.' });
+    }
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'At least one evidence file is required.' });
+    }
+
+    const photoUrls = await Promise.all(
+      req.files.map(file => uploadPhoto(file.buffer, file.originalname, id))
+    );
+
+    const existingPhotos = doc.evidencePhotos || [];
+    await Entry.findByIdAndUpdate(id, {
+      evidencePhotos: [...existingPhotos, ...photoUrls],
+      updatedAt: new Date().toISOString()
+    });
+
+    invalidateStatsCache();
+    res.json({ message: 'Evidence added successfully.' });
+  } catch (err) {
+    console.error('Add evidence error:', err);
+    res.status(500).json({ error: 'Failed to add evidence.' });
   }
 });
 

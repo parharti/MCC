@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLang } from '../context/LangContext';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 
 const DISTRICT_NAMES = {
   ariyalur: 'Ariyalur', chengalpattu: 'Chengalpattu', chennai: 'Chennai',
@@ -103,6 +104,49 @@ export default function DailyReport() {
     window.print();
   }
 
+  function handleDownloadExcel() {
+    if (rangeEntries.length === 0) {
+      alert('No complaints to export for the selected filters.');
+      return;
+    }
+
+    const rows = rangeEntries.sort((a, b) => a.sno - b.sno).map(e => ({
+      'S.No': e.sno,
+      'Complaint ID': e.complaintId,
+      'Date': e.entryDate,
+      'Time': e.entryTime || '',
+      'Media Type': e.mediaType === 'social_media' ? 'Social Media'
+        : e.mediaType === 'print_media' ? 'Print Media'
+        : e.mediaType === 'electronic_media' ? 'Electronic Media' : e.mediaType,
+      'District': DISTRICT_NAMES[e.districtId] || e.districtId,
+      'Constituency': e.constituency || '',
+      'Gist of Content': e.gist,
+      'Source of Complaint': e.sourceOfComplaint || '',
+      'News Link': e.newsLink || '',
+      'Added By': e.addedBy || 'Admin',
+      'Status': e.status,
+      'Remark': e.remark || '',
+      'Immediate Reply': e.immediateReply || '',
+      'Final Reply': e.finalReply || '',
+    }));
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+
+    // Auto-width columns
+    const colWidths = Object.keys(rows[0]).map(key => ({
+      wch: Math.max(key.length, ...rows.map(r => String(r[key] || '').substring(0, 100).length), 10)
+    }));
+    ws['!cols'] = colWidths;
+
+    const filterLabel = addedByFilter === 'all' ? 'All' : addedByFilter === 'admin' ? 'Admin' : 'District';
+    const sheetName = `${rangeLabel} - ${filterLabel}`;
+    XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
+
+    const fileName = `Complaints_Report_${rangeLabel.replace(/ /g, '_')}_${filterLabel}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  }
+
   const mediaLabel = mediaTypeFilter
     ? t[MEDIA_TYPE_OPTIONS.find(o => o.value === mediaTypeFilter)?.label] || ''
     : '';
@@ -129,7 +173,10 @@ export default function DailyReport() {
               className="date-picker" />
           </div>
         </div>
-        <button className="btn btn-primary" onClick={handlePrint}>{t.downloadPrint}</button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button className="btn btn-primary" onClick={handleDownloadExcel}>Download Excel</button>
+          <button className="btn btn-primary" onClick={handlePrint}>{t.downloadPrint}</button>
+        </div>
       </div>
 
       <div className="report-print-content">

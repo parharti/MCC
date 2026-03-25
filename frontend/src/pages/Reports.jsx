@@ -23,6 +23,24 @@ export default function Reports() {
     window.print();
   }
 
+  function handleDownloadExcel() {
+    api.get('/reports/download-excel', { responseType: 'blob' })
+      .then(res => {
+        const url = window.URL.createObjectURL(new Blob([res.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', 'All_Complaints_Report.xlsx');
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(err => {
+        console.error('Excel download failed:', err);
+        alert('Failed to download Excel report.');
+      });
+  }
+
   if (loading) return <div className="loading">Loading report data...</div>;
 
   return (
@@ -36,6 +54,9 @@ export default function Reports() {
             <option value="admin">Added by Admin</option>
             <option value="district">Added by District</option>
           </select>
+          <button className="btn btn-primary" onClick={handleDownloadExcel}>
+            Download Excel
+          </button>
           <button className="btn btn-primary" onClick={handlePrint}>
             Print Report
           </button>
