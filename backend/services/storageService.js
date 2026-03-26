@@ -21,8 +21,9 @@ async function uploadPhoto(fileBuffer, originalName, entryId) {
 
   const uploadOptions = {
     folder: `mcc-evidence/${entryId}`,
-    public_id: filename,
-    resource_type: isImg ? 'image' : 'raw'
+    public_id: isImg ? filename : filename + ext,
+    resource_type: isImg ? 'image' : 'raw',
+    access_mode: 'public'
   };
 
   // Compress images
@@ -30,11 +31,6 @@ async function uploadPhoto(fileBuffer, originalName, entryId) {
     uploadOptions.transformation = [
       { quality: 'auto:good', fetch_format: 'auto' }
     ];
-  }
-
-  // For raw files, preserve original extension in the public_id
-  if (!isImg) {
-    uploadOptions.public_id = filename + ext;
   }
 
   return new Promise((resolve, reject) => {

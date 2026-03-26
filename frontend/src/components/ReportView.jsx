@@ -123,9 +123,26 @@ export default function ReportView({ entry, onClose }) {
                 <td>
                   {entry.evidencePhotos && entry.evidencePhotos.length > 0 ? (
                     <div className="photos">
-                      {entry.evidencePhotos.map((p, i) => (
-                        <img key={i} src={p.url} alt={`Evidence ${i + 1}`} />
-                      ))}
+                      {entry.evidencePhotos.map((p, i) => {
+                        const name = p.filename || `File ${i + 1}`;
+                        const ext = name.split('.').pop().toLowerCase();
+                        const isImg = ['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext);
+                        if (isImg) {
+                          return <img key={i} src={p.url} alt={`Evidence ${i + 1}`} />;
+                        }
+                        return (
+                          <a key={i} href="#" style={{ color: '#0d7377', textDecoration: 'underline' }}
+                            onClick={async (e) => {
+                              e.preventDefault();
+                              try {
+                                const api = (await import('../services/api')).default;
+                                const res = await api.get(`/entries/view-file?url=${encodeURIComponent(p.url)}`, { responseType: 'blob' });
+                                const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/pdf' });
+                                window.open(window.URL.createObjectURL(blob), '_blank');
+                              } catch { alert('Failed to open file.'); }
+                            }}>{name}</a>
+                        );
+                      })}
                     </div>
                   ) : t.noPhotos}
                 </td>

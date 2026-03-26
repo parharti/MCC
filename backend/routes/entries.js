@@ -870,6 +870,80 @@ router.put('/:id/add-evidence', requireAdmin, upload.array('photos', 50), async 
   }
 });
 
+// GET /api/entries/view-file - proxy to serve Cloudinary raw files (solves ACL issues)
+router.get('/view-file', requireAuth, async (req, res) => {
+  try {
+    const fileUrl = req.query.url;
+    if (!fileUrl || !fileUrl.includes('res.cloudinary.com')) {
+      return res.status(400).json({ error: 'Invalid file URL.' });
+    }
+
+    const https = require('https');
+    const { createUnzip } = require('zlib');
+    const cloudinary = require('cloudinary').v2;
+
+    // Extract public_id from URL
+    const match = fileUrl.match(/\/upload\/(?:v\d+\/)?(.+)$/);
+    if (!match) {
+      return res.status(400).json({ error: 'Cannot parse file URL.' });
+    }
+
+    const publicId = match[1];
+    const ext = publicId.split('.').pop().toLowerCase();
+    const contentTypes = {
+      pdf: 'application/pdf', doc: 'application/msword',
+      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      xls: 'application/vnd.ms-excel',
+      xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      txt: 'text/plain', csv: 'text/csv'
+    };
+
+    // Use Cloudinary's generate_archive API (only method that bypasses ACL restrictions)
+    const zipUrl = cloudinary.utils.download_zip_url({
+      public_ids: [publicId],
+      resource_type: 'raw',
+      flatten_folders: true
+    });
+
+    // Download the ZIP, extract the file with adm-zip, and stream to client
+    const AdmZip = require('adm-zip');
+
+    https.get(zipUrl, (zipRes) => {
+      if (zipRes.statusCode !== 200) {
+        return res.status(502).json({ error: 'Failed to download file from storage.' });
+      }
+
+      const chunks = [];
+      zipRes.on('data', chunk => chunks.push(chunk));
+      zipRes.on('end', () => {
+        try {
+          const zipBuffer = Buffer.concat(chunks);
+          const zip = new AdmZip(zipBuffer);
+          const entries = zip.getEntries();
+
+          if (entries.length === 0) {
+            return res.status(500).json({ error: 'No files found in archive.' });
+          }
+
+          const fileData = entries[0].getData();
+          res.setHeader('Content-Type', contentTypes[ext] || 'application/octet-stream');
+          res.setHeader('Content-Disposition', 'inline');
+          res.send(fileData);
+        } catch (extractErr) {
+          console.error('ZIP extract error:', extractErr);
+          res.status(500).json({ error: 'Failed to extract file.' });
+        }
+      });
+    }).on('error', (err) => {
+      console.error('File proxy error:', err);
+      res.status(500).json({ error: 'Failed to fetch file.' });
+    });
+  } catch (err) {
+    console.error('View file error:', err);
+    res.status(500).json({ error: 'Failed to serve file.' });
+  }
+});
+
 // GET /api/entries/backup - download full backup as JSON (admin only)
 router.get('/backup', requireAdmin, async (req, res) => {
   try {

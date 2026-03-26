@@ -221,9 +221,23 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
                           const name = p.filename || `File ${i + 1}`;
                           const ext = name.split('.').pop().toLowerCase();
                           const isImg = ['jpg','jpeg','png','gif','webp','bmp','svg'].includes(ext);
+                          if (isImg) {
+                            return (
+                              <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                                className="link">Photo {i + 1}</a>
+                            );
+                          }
                           return (
-                            <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
-                              className="link">{isImg ? `Photo ${i + 1}` : name}</a>
+                            <a key={i} href="#" className="link" onClick={async (e) => {
+                              e.preventDefault();
+                              try {
+                                const apiMod = await import('../services/api');
+                                const res = await apiMod.default.get(`/entries/view-file?url=${encodeURIComponent(p.url)}`, { responseType: 'blob' });
+                                const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/pdf' });
+                                const blobUrl = window.URL.createObjectURL(blob);
+                                window.open(blobUrl, '_blank');
+                              } catch { alert('Failed to open file.'); }
+                            }}>{name}</a>
                           );
                         })}
                       </div>
