@@ -131,16 +131,8 @@ export default function ReportView({ entry, onClose }) {
                           return <img key={i} src={p.url} alt={`Evidence ${i + 1}`} />;
                         }
                         return (
-                          <a key={i} href="#" style={{ color: '#0d7377', textDecoration: 'underline' }}
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              try {
-                                const api = (await import('../services/api')).default;
-                                const res = await api.get(`/entries/view-file?url=${encodeURIComponent(p.url)}`, { responseType: 'blob' });
-                                const blob = new Blob([res.data], { type: res.headers['content-type'] || 'application/pdf' });
-                                window.open(window.URL.createObjectURL(blob), '_blank');
-                              } catch { alert('Failed to open file.'); }
-                            }}>{name}</a>
+                          <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                            style={{ color: '#0d7377', textDecoration: 'underline' }}>{name}</a>
                         );
                       })}
                     </div>
