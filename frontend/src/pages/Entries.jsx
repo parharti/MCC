@@ -118,6 +118,16 @@ export default function Entries() {
     fetchEntries();
   }
 
+  async function handleDrop(entry) {
+    if (!window.confirm(t.confirmDrop)) return;
+    try {
+      await api.put(`/entries/${entry.id}/drop`);
+      fetchEntries();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to drop entry.');
+    }
+  }
+
   function clearFilter() {
     if (mediaType) {
       navigate(`/entries?mediaType=${mediaType}`);
@@ -131,8 +141,8 @@ export default function Entries() {
 
   // Status filters - hide Overdue for print/electronic media
   const statusFilters = isSocialMedia
-    ? ['all', 'Pending', 'Replied', 'Closed', 'Overdue']
-    : ['all', 'Pending', 'Closed'];
+    ? ['all', 'Pending', 'Replied', 'Closed', 'Dropped', 'Overdue']
+    : ['all', 'Pending', 'Closed', 'Dropped'];
 
   const mediaLabel = mediaType && MEDIA_TYPE_LABELS[mediaType] ? t[MEDIA_TYPE_LABELS[mediaType]] : null;
 
@@ -219,7 +229,7 @@ export default function Entries() {
           entries={entries.filter(e => {
             if (statusFilter === 'all') return true;
             if (statusFilter === 'Overdue') {
-              return e.status !== 'Closed' && (Date.now() - new Date(e.createdAt).getTime()) >= 24 * 60 * 60 * 1000;
+              return e.status !== 'Closed' && e.status !== 'Dropped' && (Date.now() - new Date(e.createdAt).getTime()) >= 24 * 60 * 60 * 1000;
             }
             return e.status === statusFilter;
           })}
@@ -227,6 +237,7 @@ export default function Entries() {
           onDelete={handleDelete}
           onEdit={entry => setEditEntry(entry)}
           onReply={entry => setReplyModal(entry)}
+          onDrop={entry => handleDrop(entry)}
           onFillConstituency={entry => setConstituencyModal(entry)}
           onRefresh={fetchEntries}
           mediaType={mediaType}

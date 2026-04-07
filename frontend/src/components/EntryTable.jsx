@@ -51,14 +51,15 @@ function getHoursSince(dateStr) {
 
 function StatusBadge({ status, createdAt, t, showOverdue }) {
   const hours = getHoursSince(createdAt);
-  const isOverdue = showOverdue && status !== 'Closed' && hours >= 24;
+  const isOverdue = showOverdue && status !== 'Closed' && status !== 'Dropped' && hours >= 24;
 
   let className = 'badge ';
   if (status === 'Pending') className += 'badge-pending';
   else if (status === 'Replied') className += 'badge-replied';
+  else if (status === 'Dropped') className += 'badge-dropped';
   else className += 'badge-closed';
 
-  const statusLabel = status === 'Pending' ? t.pending : status === 'Replied' ? t.replied : t.closed;
+  const statusLabel = status === 'Pending' ? t.pending : status === 'Replied' ? t.replied : status === 'Dropped' ? t.dropped : t.closed;
 
   return (
     <div className="status-cell">
@@ -68,7 +69,7 @@ function StatusBadge({ status, createdAt, t, showOverdue }) {
   );
 }
 
-export default function EntryTable({ entries, user, onDelete, onEdit, onReply, onFillConstituency, onRefresh, mediaType }) {
+export default function EntryTable({ entries, user, onDelete, onEdit, onReply, onDrop, onFillConstituency, onRefresh, mediaType }) {
   const [reportEntry, setReportEntry] = useState(null);
   const [editingTime, setEditingTime] = useState(null);
   const [newTime, setNewTime] = useState('');
@@ -161,7 +162,7 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
 
               return (
                 <tr key={entry.id} className={
-                  showOverdue && entry.status !== 'Closed' && getHoursSince(entry.createdAt) >= 24
+                  showOverdue && entry.status !== 'Closed' && entry.status !== 'Dropped' && getHoursSince(entry.createdAt) >= 24
                     ? 'row-overdue' : ''
                 }>
                   <td><strong>{entry.complaintId || `SM-${String(entry.sno).padStart(3, '0')}`}</strong></td>
@@ -243,12 +244,20 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
                     )}
 
                     {user.role === 'district' && entry.status === 'Replied' && (
-                      <button className="btn btn-sm btn-action-yellow"
-                        onClick={() => onReply(entry)}>{t.finalReply}</button>
+                      <>
+                        <button className="btn btn-sm btn-action-yellow"
+                          onClick={() => onReply(entry)}>{t.finalReply}</button>
+                        <button className="btn btn-sm btn-action-drop"
+                          onClick={() => onDrop(entry)}>{t.drop}</button>
+                      </>
                     )}
 
                     {user.role === 'district' && entry.status === 'Closed' && (
                       <span className="btn btn-sm btn-action-green">{t.closed}</span>
+                    )}
+
+                    {user.role === 'district' && entry.status === 'Dropped' && (
+                      <span className="btn btn-sm btn-action-dropped">{t.dropped}</span>
                     )}
 
                     {/* Admin: View Report for closed entries */}

@@ -95,22 +95,25 @@ export default function DailyReport() {
   const pendingDay = rangeEntries.filter(e => e.status === 'Pending').length;
   const repliedDay = rangeEntries.filter(e => e.status === 'Replied').length;
   const closedDay = rangeEntries.filter(e => e.status === 'Closed').length;
+  const droppedDay = rangeEntries.filter(e => e.status === 'Dropped').length;
   const overdueDay = isSocialView
-    ? rangeEntries.filter(e => e.status !== 'Closed' && (Date.now() - new Date(e.createdAt).getTime()) >= 24*60*60*1000).length
+    ? rangeEntries.filter(e => e.status !== 'Closed' && e.status !== 'Dropped' && (Date.now() - new Date(e.createdAt).getTime()) >= 24*60*60*1000).length
     : 0;
 
   const districtWise = {};
   rangeEntries.forEach(e => {
-    if (!districtWise[e.districtId]) districtWise[e.districtId] = { total: 0, pending: 0, replied: 0, closed: 0 };
+    if (!districtWise[e.districtId]) districtWise[e.districtId] = { total: 0, pending: 0, replied: 0, closed: 0, dropped: 0 };
     districtWise[e.districtId].total++;
     if (e.status === 'Pending') districtWise[e.districtId].pending++;
     else if (e.status === 'Replied') districtWise[e.districtId].replied++;
     else if (e.status === 'Closed') districtWise[e.districtId].closed++;
+    else if (e.status === 'Dropped') districtWise[e.districtId].dropped++;
   });
 
   const overallPending = entries.filter(e => e.status === 'Pending').length;
   const overallReplied = entries.filter(e => e.status === 'Replied').length;
   const overallClosed = entries.filter(e => e.status === 'Closed').length;
+  const overallDropped = entries.filter(e => e.status === 'Dropped').length;
 
   function handlePrint() {
     window.print();
@@ -218,6 +221,7 @@ export default function DailyReport() {
               <div className="rs-item rs-replied"><span className="rs-num">{repliedDay}</span><span className="rs-label">{t.replied}</span></div>
             )}
             <div className="rs-item rs-closed"><span className="rs-num">{closedDay}</span><span className="rs-label">{t.closed}</span></div>
+            <div className="rs-item rs-dropped"><span className="rs-num">{droppedDay}</span><span className="rs-label">{t.dropped}</span></div>
             {isSocialView && (
               <div className="rs-item rs-overdue"><span className="rs-num">{overdueDay}</span><span className="rs-label">{t.overdue}</span></div>
             )}
@@ -233,6 +237,7 @@ export default function DailyReport() {
               <div className="rs-item rs-replied"><span className="rs-num">{overallReplied}</span><span className="rs-label">{t.replied}</span></div>
             )}
             <div className="rs-item rs-closed"><span className="rs-num">{overallClosed}</span><span className="rs-label">{t.closed}</span></div>
+            <div className="rs-item rs-dropped"><span className="rs-num">{overallDropped}</span><span className="rs-label">{t.dropped}</span></div>
           </div>
         </div>
 
@@ -248,6 +253,7 @@ export default function DailyReport() {
                   <th>{t.pending}</th>
                   {isSocialView && <th>{t.replied}</th>}
                   <th>{t.closed}</th>
+                  <th>{t.dropped}</th>
                 </tr>
               </thead>
               <tbody>
@@ -261,6 +267,7 @@ export default function DailyReport() {
                     <td>{ds.pending > 0 ? ds.pending : '-'}</td>
                     {isSocialView && <td>{ds.replied > 0 ? ds.replied : '-'}</td>}
                     <td>{ds.closed > 0 ? ds.closed : '-'}</td>
+                    <td>{ds.dropped > 0 ? ds.dropped : '-'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -296,7 +303,7 @@ export default function DailyReport() {
                     <td>{entry.addedBy || 'Admin'}</td>
                     <td>
                       <span className={`badge badge-${entry.status.toLowerCase()}`}>
-                        {entry.status === 'Pending' ? t.pending : entry.status === 'Replied' ? t.replied : t.closed}
+                        {entry.status === 'Pending' ? t.pending : entry.status === 'Replied' ? t.replied : entry.status === 'Dropped' ? t.dropped : t.closed}
                       </span>
                     </td>
                     {isSocialView && <td>{entry.immediateReply || '-'}</td>}
