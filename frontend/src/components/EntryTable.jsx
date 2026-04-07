@@ -234,13 +234,21 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
                     {/* Social media: Pending → Immediate Reply, then Replied → Final Reply */}
                     {/* Print/Electronic: Pending → Final Reply directly */}
                     {user.role === 'district' && entry.status === 'Pending' && entrySocial && (
-                      <button className="btn btn-sm btn-action-red"
-                        onClick={() => onReply(entry)}>{t.immediateReply}</button>
+                      <>
+                        <button className="btn btn-sm btn-action-red"
+                          onClick={() => onReply(entry)}>{t.immediateReply}</button>
+                        <button className="btn btn-sm btn-action-drop"
+                          onClick={() => onDrop(entry)}>{t.drop}</button>
+                      </>
                     )}
 
                     {user.role === 'district' && entry.status === 'Pending' && !entrySocial && (
-                      <button className="btn btn-sm btn-action-yellow"
-                        onClick={() => onReply(entry)}>{t.finalReply}</button>
+                      <>
+                        <button className="btn btn-sm btn-action-yellow"
+                          onClick={() => onReply(entry)}>{t.finalReply}</button>
+                        <button className="btn btn-sm btn-action-drop"
+                          onClick={() => onDrop(entry)}>{t.drop}</button>
+                      </>
                     )}
 
                     {user.role === 'district' && entry.status === 'Replied' && (

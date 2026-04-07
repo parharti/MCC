@@ -809,8 +809,8 @@ router.put('/:id/drop', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    if (doc.status !== 'Replied') {
-      return res.status(400).json({ error: 'Only entries with interim reply (Replied status) can be dropped.' });
+    if (doc.status !== 'Pending' && doc.status !== 'Replied') {
+      return res.status(400).json({ error: 'Only pending or replied entries can be dropped.' });
     }
 
     await Entry.findByIdAndUpdate(id, {
