@@ -160,6 +160,7 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
                   <option value="Pending">Pending</option>
                   <option value="Replied">Replied</option>
                   <option value="Closed">Closed</option>
+                  <option value="Dropped">Dropped</option>
                 </select>
               </div>
 
