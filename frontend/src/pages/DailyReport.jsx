@@ -51,6 +51,8 @@ export default function DailyReport() {
   const [selectedDate, setSelectedDate] = useState(today);
   const [rangeType, setRangeType] = useState('daily');
   const [addedByFilter, setAddedByFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('complaintId');
   const [customFrom, setCustomFrom] = useState(today);
   const [customTo, setCustomTo] = useState(today);
   const mediaTypeFilter = mediaTypeFromUrl;
@@ -68,11 +70,16 @@ export default function DailyReport() {
     : allEntries;
 
   // Filter entries by addedBy
-  const entries = addedByFilter === 'all'
+  const addedByFiltered = addedByFilter === 'all'
     ? mediaFiltered
     : addedByFilter === 'admin'
       ? mediaFiltered.filter(e => (e.addedBy || 'Admin') === 'Admin')
       : mediaFiltered.filter(e => (e.addedBy || 'Admin') !== 'Admin');
+
+  // Filter entries by status
+  const entries = statusFilter === 'all'
+    ? addedByFiltered
+    : addedByFiltered.filter(e => e.status === statusFilter);
 
   const isSocialView = !mediaTypeFilter || mediaTypeFilter === 'social_media';
 
@@ -125,7 +132,10 @@ export default function DailyReport() {
       return;
     }
 
-    const rows = rangeEntries.sort((a, b) => a.sno - b.sno).map(e => ({
+    const rows = [...rangeEntries].sort((a, b) => sortBy === 'date'
+      ? new Date(a.entryDate + ' ' + (a.entryTime || '00:00')) - new Date(b.entryDate + ' ' + (b.entryTime || '00:00'))
+      : a.sno - b.sno
+    ).map(e => ({
       'S.No': e.sno,
       'Complaint ID': e.complaintId,
       'Date': e.entryDate,
@@ -155,10 +165,11 @@ export default function DailyReport() {
     ws['!cols'] = colWidths;
 
     const filterLabel = addedByFilter === 'all' ? 'All' : addedByFilter === 'admin' ? 'Admin' : 'District';
+    const statusLabel = statusFilter === 'all' ? 'AllStatus' : statusFilter;
     const sheetName = `${rangeLabel} - ${filterLabel}`;
     XLSX.utils.book_append_sheet(wb, ws, sheetName.substring(0, 31));
 
-    const fileName = `Complaints_Report_${rangeLabel.replace(/ /g, '_')}_${filterLabel}.xlsx`;
+    const fileName = `Complaints_Report_${rangeLabel.replace(/ /g, '_')}_${filterLabel}_${statusLabel}.xlsx`;
     XLSX.writeFile(wb, fileName);
   }
 
@@ -183,6 +194,13 @@ export default function DailyReport() {
               <option value="all">{t.allAddedBy}</option>
               <option value="admin">{t.addedByAdmin}</option>
               <option value="district">{t.addedByDistrict}</option>
+            </select>
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="range-select">
+              <option value="all">{t.allStatuses || 'All Statuses'}</option>
+              <option value="Pending">{t.pending}</option>
+              <option value="Replied">{t.replied}</option>
+              <option value="Closed">{t.closed}</option>
+              <option value="Dropped">{t.dropped}</option>
             </select>
             {rangeType === 'custom' ? (
               <>
@@ -276,7 +294,13 @@ export default function DailyReport() {
         )}
 
         <div className="report-complaints-list">
-          <h3>Complaints ({rangeLabel}) - {rangeEntries.length} total</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+            <h3>Complaints ({rangeLabel}) - {rangeEntries.length} total</h3>
+            <select value={sortBy} onChange={e => setSortBy(e.target.value)} className="range-select no-print" style={{ marginBottom: '8px' }}>
+              <option value="complaintId">{t.sortByComplaintId || 'Sort by Complaint ID'}</option>
+              <option value="date">{t.sortByDate || 'Sort by Date'}</option>
+            </select>
+          </div>
           {rangeEntries.length === 0 ? (
             <p className="text-muted">No complaints for this period.</p>
           ) : (
@@ -294,7 +318,10 @@ export default function DailyReport() {
                 </tr>
               </thead>
               <tbody>
-                {rangeEntries.sort((a, b) => a.sno - b.sno).map(entry => (
+                {[...rangeEntries].sort((a, b) => sortBy === 'date'
+                  ? new Date(a.entryDate + ' ' + (a.entryTime || '00:00')) - new Date(b.entryDate + ' ' + (b.entryTime || '00:00'))
+                  : a.sno - b.sno
+                ).map(entry => (
                   <tr key={entry.id}>
                     <td>{entry.complaintId}</td>
                     <td>{DISTRICT_NAMES[entry.districtId] || entry.districtId}</td>
