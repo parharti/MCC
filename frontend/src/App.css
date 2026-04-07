@@ -331,6 +331,23 @@ body {
   cursor: default;
 }
 
+.btn-action-drop {
+  background: #fef2f2;
+  color: #7f1d1d;
+  border: 1px solid #f87171;
+}
+
+.btn-action-drop:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.btn-action-dropped {
+  background: #e2e3e5;
+  color: #383d41;
+  border: 1px solid #d6d8db;
+  cursor: default;
+}
+
 /* ========== BUTTONS ========== */
 .btn {
   display: inline-flex;
@@ -552,6 +569,7 @@ body {
 .summary-card.card-pending { border-left-color: var(--yellow); }
 .summary-card.card-replied { border-left-color: var(--blue); }
 .summary-card.card-closed { border-left-color: var(--green); }
+.summary-card.card-dropped { border-left-color: #6c757d; }
 .summary-card.card-overdue { border-left-color: var(--red); }
 
 .summary-number {
@@ -736,6 +754,7 @@ body {
 .dt-pending { font-weight: 700; font-size: 16px; color: #856404; }
 .dt-replied { font-weight: 700; font-size: 16px; color: #004085; }
 .dt-closed { font-weight: 700; font-size: 16px; color: var(--green); }
+.dt-dropped { font-weight: 700; font-size: 16px; color: #6c757d; }
 .dt-overdue { font-weight: 700; font-size: 16px; color: var(--red); }
 
 .dt-progress-cell {
@@ -854,6 +873,11 @@ body {
 .filter-btn.filter-active.filter-closed {
   background: #065f46;
   border-color: #065f46;
+}
+
+.filter-btn.filter-active.filter-dropped {
+  background: #6c757d;
+  border-color: #6c757d;
 }
 
 .filter-btn.filter-active.filter-overdue {
@@ -996,6 +1020,7 @@ body {
 .badge-pending { background: #fff3cd; color: #856404; }
 .badge-replied { background: #cce5ff; color: #004085; }
 .badge-closed { background: #d4edda; color: #155724; }
+.badge-dropped { background: #e2e3e5; color: #383d41; }
 
 .badge-overdue {
   background: var(--red);
@@ -1230,7 +1255,7 @@ body {
   .search-input { width: 100%; }
   .district-table { min-width: 600px; }
   .district-table th, .district-table td { padding: 12px 10px; font-size: 14px; }
-  .dt-total, .dt-pending, .dt-replied, .dt-closed, .dt-overdue { font-size: 14px; }
+  .dt-total, .dt-pending, .dt-replied, .dt-closed, .dt-dropped, .dt-overdue { font-size: 14px; }
 
   .modal { max-width: 95vw; }
   .modal-report { max-width: 95vw; }
@@ -1332,7 +1357,7 @@ body {
   .district-list { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .district-table { min-width: 500px; }
   .district-table th, .district-table td { padding: 10px 8px; font-size: 13px; }
-  .dt-total, .dt-pending, .dt-replied, .dt-closed, .dt-overdue { font-size: 13px; }
+  .dt-total, .dt-pending, .dt-replied, .dt-closed, .dt-dropped, .dt-overdue { font-size: 13px; }
   .dt-progress-bar { width: 50px; }
   .dt-progress-text { font-size: 12px; }
 

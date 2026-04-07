@@ -12,7 +12,7 @@ const entrySchema = new mongoose.Schema({
   gist: { type: String, required: true },
   sourceOfComplaint: { type: String, default: '' },
   addedBy: { type: String, default: '' },
-  status: { type: String, default: 'Pending', enum: ['Pending', 'Replied', 'Closed'], index: true },
+  status: { type: String, default: 'Pending', enum: ['Pending', 'Replied', 'Closed', 'Dropped'], index: true },
   remark: { type: String, default: '' },
   immediateReply: { type: String, default: '' },
   repliedLink: { type: String, default: '' },

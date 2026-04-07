@@ -83,7 +83,7 @@ export default function Dashboard() {
 
   if (loading) return <div className="loading">Loading dashboard...</div>;
 
-  const overall = stats?.overall || { total: 0, pending: 0, replied: 0, closed: 0, overdue: 0 };
+  const overall = stats?.overall || { total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 };
   const districtStats = stats?.districtStats || {};
   const mediaTypeStats = stats?.mediaTypeStats || { social_media: { total: 0 }, print_media: { total: 0 }, electronic_media: { total: 0 } };
 
@@ -119,6 +119,10 @@ export default function Dashboard() {
           <div className="summary-number">{overall.closed}</div>
           <div className="summary-label">{t.closed}</div>
         </div>
+        <div className="summary-card card-dropped clickable" onClick={() => navigate('/entries?status=Dropped')}>
+          <div className="summary-number">{overall.dropped}</div>
+          <div className="summary-label">{t.dropped}</div>
+        </div>
         <div className="summary-card card-overdue clickable" onClick={() => navigate('/entries?status=Overdue')}>
           <div className="summary-number">{overall.overdue}</div>
           <div className="summary-label">{t.overdue}</div>
@@ -151,6 +155,10 @@ export default function Dashboard() {
                 <div className="media-stat-item">
                   <span className="media-stat-number" style={{ color: '#27ae60' }}>{ms.closed || 0}</span>
                   <span className="media-stat-label">{t.closed}</span>
+                </div>
+                <div className="media-stat-item">
+                  <span className="media-stat-number" style={{ color: '#6c757d' }}>{ms.dropped || 0}</span>
+                  <span className="media-stat-label">{t.dropped}</span>
                 </div>
               </div>
             </div>
@@ -194,6 +202,7 @@ export default function Dashboard() {
                   <th>{t.pending}</th>
                   <th>{t.replied}</th>
                   <th>{t.closed}</th>
+                  <th>{t.dropped}</th>
                   <th>{t.overdue}</th>
                   <th>{t.progress}</th>
                 </tr>
@@ -203,8 +212,8 @@ export default function Dashboard() {
                   const raw = districtStats[id] || {};
                   // When media filter active, use that media type's stats; otherwise use overall
                   const ds = mediaFilter
-                    ? (raw[mediaFilter] || { total: 0, pending: 0, replied: 0, closed: 0, overdue: 0 })
-                    : { total: raw.total || 0, pending: raw.pending || 0, replied: raw.replied || 0, closed: raw.closed || 0, overdue: raw.overdue || 0 };
+                    ? (raw[mediaFilter] || { total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 })
+                    : { total: raw.total || 0, pending: raw.pending || 0, replied: raw.replied || 0, closed: raw.closed || 0, dropped: raw.dropped || 0, overdue: raw.overdue || 0 };
                   const pct = ds.total > 0 ? Math.round((ds.closed / ds.total) * 100) : 0;
                   const hasOverdue = ds.overdue > 0;
 
@@ -223,6 +232,7 @@ export default function Dashboard() {
                       <td className="dt-pending">{ds.pending > 0 ? ds.pending : '-'}</td>
                       <td className="dt-replied">{ds.replied > 0 ? ds.replied : '-'}</td>
                       <td className="dt-closed">{ds.closed > 0 ? ds.closed : '-'}</td>
+                      <td className="dt-dropped">{ds.dropped > 0 ? ds.dropped : '-'}</td>
                       <td className="dt-overdue">{ds.overdue > 0 ? ds.overdue : '-'}</td>
                       <td>
                         <div className="dt-progress-cell">
@@ -237,7 +247,7 @@ export default function Dashboard() {
                 })}
                 {filteredDistricts.length === 0 && (
                   <tr>
-                    <td colSpan="8" className="district-row-empty">
+                    <td colSpan="9" className="district-row-empty">
                       {t.noDistrictFound} "{search}"
                     </td>
                   </tr>

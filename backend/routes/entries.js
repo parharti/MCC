@@ -73,7 +73,7 @@ router.get('/stats', requireAuth, async (req, res) => {
     const TWENTY_FOUR_HRS = 24 * 60 * 60 * 1000;
 
     if (user.role === 'admin') {
-      const emptyMediaStats = () => ({ total: 0, pending: 0, replied: 0, closed: 0, overdue: 0 });
+      const emptyMediaStats = () => ({ total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 });
       const districtStats = {};
       allEntries.forEach(entry => {
         const did = entry.districtId;
@@ -93,7 +93,8 @@ router.get('/stats', requireAuth, async (req, res) => {
         if (entry.status === 'Pending') ds.pending++;
         else if (entry.status === 'Replied') ds.replied++;
         else if (entry.status === 'Closed') ds.closed++;
-        if (entry.status !== 'Closed' && (now - new Date(entry.createdAt)) >= TWENTY_FOUR_HRS) {
+        else if (entry.status === 'Dropped') ds.dropped++;
+        if (entry.status !== 'Closed' && entry.status !== 'Dropped' && (now - new Date(entry.createdAt)) >= TWENTY_FOUR_HRS) {
           ds.overdue++;
         }
 
@@ -101,7 +102,8 @@ router.get('/stats', requireAuth, async (req, res) => {
         if (entry.status === 'Pending') mds.pending++;
         else if (entry.status === 'Replied') mds.replied++;
         else if (entry.status === 'Closed') mds.closed++;
-        if (entry.status !== 'Closed' && (now - new Date(entry.createdAt)) >= TWENTY_FOUR_HRS) {
+        else if (entry.status === 'Dropped') mds.dropped++;
+        if (entry.status !== 'Closed' && entry.status !== 'Dropped' && (now - new Date(entry.createdAt)) >= TWENTY_FOUR_HRS) {
           mds.overdue++;
         }
       });
@@ -111,7 +113,8 @@ router.get('/stats', requireAuth, async (req, res) => {
         pending: allEntries.filter(e => e.status === 'Pending').length,
         replied: allEntries.filter(e => e.status === 'Replied').length,
         closed: allEntries.filter(e => e.status === 'Closed').length,
-        overdue: allEntries.filter(e => e.status !== 'Closed' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
+        dropped: allEntries.filter(e => e.status === 'Dropped').length,
+        overdue: allEntries.filter(e => e.status !== 'Closed' && e.status !== 'Dropped' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
       };
 
       const mediaTypeStats = {
@@ -126,6 +129,7 @@ router.get('/stats', requireAuth, async (req, res) => {
           if (entry.status === 'Pending') mediaTypeStats[mt].pending++;
           else if (entry.status === 'Replied') mediaTypeStats[mt].replied++;
           else if (entry.status === 'Closed') mediaTypeStats[mt].closed++;
+          else if (entry.status === 'Dropped') mediaTypeStats[mt].dropped++;
         }
       });
 
@@ -137,9 +141,10 @@ router.get('/stats', requireAuth, async (req, res) => {
         pending: myEntries.filter(e => e.status === 'Pending').length,
         replied: myEntries.filter(e => e.status === 'Replied').length,
         closed: myEntries.filter(e => e.status === 'Closed').length,
-        overdue: myEntries.filter(e => e.status !== 'Closed' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
+        dropped: myEntries.filter(e => e.status === 'Dropped').length,
+        overdue: myEntries.filter(e => e.status !== 'Closed' && e.status !== 'Dropped' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
       };
-      const emptyMS = () => ({ total: 0, pending: 0, replied: 0, closed: 0 });
+      const emptyMS = () => ({ total: 0, pending: 0, replied: 0, closed: 0, dropped: 0 });
       const mediaTypeStats = {
         social_media: emptyMS(),
         print_media: emptyMS(),
@@ -152,6 +157,7 @@ router.get('/stats', requireAuth, async (req, res) => {
           if (entry.status === 'Pending') mediaTypeStats[mt].pending++;
           else if (entry.status === 'Replied') mediaTypeStats[mt].replied++;
           else if (entry.status === 'Closed') mediaTypeStats[mt].closed++;
+          else if (entry.status === 'Dropped') mediaTypeStats[mt].dropped++;
         }
       });
       res.json({ overall: stats, districtStats: {}, mediaTypeStats });
@@ -616,7 +622,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (finalReply !== undefined) updates.finalReply = finalReply;
     if (repliedLink !== undefined) updates.repliedLink = repliedLink;
     if (remark !== undefined) updates.remark = remark;
-    if (status !== undefined && ['Pending', 'Replied', 'Closed'].includes(status)) updates.status = status;
+    if (status !== undefined && ['Pending', 'Replied', 'Closed', 'Dropped'].includes(status)) updates.status = status;
     if (mediaType !== undefined) {
       const prefix = MEDIA_TYPE_PREFIX[mediaType];
       if (!prefix) return res.status(400).json({ error: 'Invalid media type.' });
@@ -734,8 +740,8 @@ router.put('/:id/remark', requireAuth, async (req, res) => {
       return res.status(404).json({ error: 'Entry not found.' });
     }
 
-    if (doc.status === 'Closed') {
-      return res.status(400).json({ error: 'Cannot edit remarks on closed entries.' });
+    if (doc.status === 'Closed' || doc.status === 'Dropped') {
+      return res.status(400).json({ error: 'Cannot edit remarks on closed or dropped entries.' });
     }
 
     if (user.role === 'district' && doc.districtId !== user.districtId) {
@@ -785,6 +791,38 @@ router.put('/:id/immediate-reply', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Immediate reply error:', err);
     res.status(500).json({ error: 'Failed to submit immediate reply.' });
+  }
+});
+
+// PUT /api/entries/:id/drop - drop an entry after interim reply (district or admin)
+router.put('/:id/drop', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = req.user;
+
+    const doc = await Entry.findById(id);
+    if (!doc) {
+      return res.status(404).json({ error: 'Entry not found.' });
+    }
+
+    if (user.role === 'district' && doc.districtId !== user.districtId) {
+      return res.status(403).json({ error: 'Access denied.' });
+    }
+
+    if (doc.status !== 'Replied') {
+      return res.status(400).json({ error: 'Only entries with interim reply (Replied status) can be dropped.' });
+    }
+
+    await Entry.findByIdAndUpdate(id, {
+      status: 'Dropped',
+      updatedAt: new Date().toISOString()
+    });
+
+    invalidateStatsCache();
+    res.json({ message: 'Entry dropped successfully.' });
+  } catch (err) {
+    console.error('Drop entry error:', err);
+    res.status(500).json({ error: 'Failed to drop entry.' });
   }
 });
 
