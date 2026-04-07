@@ -51,6 +51,10 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
       setError(t.allFieldsRequired);
       return;
     }
+    if (form.mediaType === 'social_media' && user.role === 'district' && !form.newsLink?.trim()) {
+      setError(t.newsLinkRequired || 'News Link is required for Social Media entries.');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -99,9 +103,10 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
 
           <div className="form-row">
             <div className="form-group">
-              <label>{t.newsLinkLabel}</label>
+              <label>{t.newsLinkLabel}{form.mediaType === 'social_media' && user.role === 'district' ? ' *' : ''}</label>
               <input type="url" name="newsLink" value={form.newsLink}
-                onChange={handleChange} placeholder="https://..." />
+                onChange={handleChange} placeholder="https://..."
+                required={form.mediaType === 'social_media' && user.role === 'district'} />
             </div>
           </div>
 

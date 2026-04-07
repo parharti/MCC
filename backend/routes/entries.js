@@ -183,6 +183,9 @@ router.post('/', requireAuth, async (req, res) => {
     if (mediaType === 'social_media' && !entryTime) {
       return res.status(400).json({ error: 'Time is required for Social Media entries.' });
     }
+    if (mediaType === 'social_media' && req.user.role === 'district' && (!newsLink || !newsLink.trim())) {
+      return res.status(400).json({ error: 'News Link is required for Social Media entries.' });
+    }
     const prefix = MEDIA_TYPE_PREFIX[mediaType];
     if (!prefix) {
       return res.status(400).json({ error: 'Invalid media type.' });
