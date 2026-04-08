@@ -134,7 +134,7 @@ const translations = {
     photoRequired: 'At least one evidence file is required for final reply.',
     submitting: 'Submitting...',
     submitReply: 'Submit Reply',
-    repliedLinkPlaceholder: 'Paste reply link (optional)',
+    repliedLinkPlaceholder: 'Paste reply link',
     filesSelected: 'file(s) selected',
 
     // Remark Modal
