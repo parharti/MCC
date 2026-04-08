@@ -134,7 +134,7 @@ const translations = {
     photoRequired: 'At least one evidence file is required for final reply.',
     submitting: 'Submitting...',
     submitReply: 'Submit Reply',
-    repliedLinkPlaceholder: 'Paste reply link (optional)',
+    repliedLinkPlaceholder: 'Paste reply link',
     filesSelected: 'file(s) selected',
 
     // Remark Modal
@@ -309,7 +309,7 @@ const translations = {
     photoRequired: 'இறுதி பதிலுக்கு குறைந்தது ஒரு ஆதார கோப்பு தேவை.',
     submitting: 'சமர்ப்பிக்கிறது...',
     submitReply: 'பதில் சமர்ப்பி',
-    repliedLinkPlaceholder: 'பதில் இணைப்பை ஒட்டவும் (விருப்பம்)',
+    repliedLinkPlaceholder: 'பதில் இணைப்பை ஒட்டவும்',
     filesSelected: 'கோப்புகள் தேர்ந்தெடுக்கப்பட்டன',
 
     // Remark Modal
