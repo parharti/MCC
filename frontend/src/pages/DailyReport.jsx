@@ -154,6 +154,7 @@ export default function DailyReport() {
       'Immediate Reply': e.immediateReply || '',
       'Final Reply': e.finalReply || '',
       'Replied Link': e.repliedLink || '',
+      'Evidence': (e.evidencePhotos || []).map(p => p.url).join(', '),
     }));
 
     const wb = XLSX.utils.book_new();
@@ -309,14 +310,20 @@ export default function DailyReport() {
               <thead>
                 <tr>
                   <th>{t.complaintId}</th>
+                  <th>{t.date}</th>
+                  {isSocialView && <th>{t.time}</th>}
                   <th>{t.district}</th>
+                  <th>{t.constituency}</th>
                   <th>{t.gistOfContent}</th>
                   <th>{t.source}</th>
+                  <th>{t.newsLink}</th>
                   <th>{t.addedBy}</th>
                   <th>{t.status}</th>
+                  <th>{t.remark}</th>
                   {isSocialView && <th>{t.immediateReply}</th>}
                   <th>{t.finalReply}</th>
                   <th>{t.repliedLink}</th>
+                  <th>{t.evidence}</th>
                 </tr>
               </thead>
               <tbody>
@@ -326,18 +333,32 @@ export default function DailyReport() {
                 ).map(entry => (
                   <tr key={entry.id}>
                     <td>{entry.complaintId}</td>
+                    <td>{entry.entryDate}</td>
+                    {isSocialView && <td>{entry.entryTime || '-'}</td>}
                     <td>{DISTRICT_NAMES[entry.districtId] || entry.districtId}</td>
+                    <td>{entry.constituency || '-'}</td>
                     <td>{entry.gist}</td>
                     <td>{entry.sourceOfComplaint}</td>
+                    <td>{entry.newsLink ? <a href={entry.newsLink} target="_blank" rel="noopener noreferrer" className="link">{t.view}</a> : '-'}</td>
                     <td>{entry.addedBy || 'Admin'}</td>
                     <td>
                       <span className={`badge badge-${entry.status.toLowerCase()}`}>
                         {entry.status === 'Pending' ? t.pending : entry.status === 'Replied' ? t.replied : entry.status === 'Dropped' ? t.dropped : t.closed}
                       </span>
                     </td>
+                    <td>{entry.remark || '-'}</td>
                     {isSocialView && <td>{entry.immediateReply || '-'}</td>}
                     <td>{entry.finalReply || '-'}</td>
                     <td>{entry.repliedLink ? <a href={entry.repliedLink} target="_blank" rel="noopener noreferrer" className="link">{t.view}</a> : '-'}</td>
+                    <td>
+                      {entry.evidencePhotos && entry.evidencePhotos.length > 0
+                        ? entry.evidencePhotos.map((p, i) => (
+                            <a key={i} href={p.url} target="_blank" rel="noopener noreferrer" className="link" style={{ display: 'block' }}>
+                              {p.filename || `File ${i + 1}`}
+                            </a>
+                          ))
+                        : '-'}
+                    </td>
                   </tr>
                 ))}
               </tbody>
