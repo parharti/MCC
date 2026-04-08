@@ -24,6 +24,11 @@ export default function ReplyModal({ entry, onClose, onSubmitted }) {
       return;
     }
 
+    if (!isImmediate && entrySocial && !repliedLink.trim()) {
+      setError(t.repliedLinkRequired || 'Replied Link is required for Social Media entries.');
+      return;
+    }
+
     if (!isImmediate && photos.length === 0) {
       setError(t.photoRequired);
       return;
@@ -81,9 +86,9 @@ export default function ReplyModal({ entry, onClose, onSubmitted }) {
 
           {!isImmediate && (
             <div className="form-group">
-              <label>{t.repliedLink}</label>
+              <label>{t.repliedLink}{entrySocial ? ' *' : ''}</label>
               <input type="url" value={repliedLink} onChange={e => setRepliedLink(e.target.value)}
-                placeholder={t.repliedLinkPlaceholder} />
+                placeholder={t.repliedLinkPlaceholder} required={entrySocial} />
             </div>
           )}
 

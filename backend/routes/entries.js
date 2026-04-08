@@ -855,6 +855,10 @@ router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (r
       return res.status(400).json({ error: 'Final reply cannot be empty.' });
     }
 
+    if (entryMediaType === 'social_media' && user.role === 'district' && (!repliedLink || !repliedLink.trim())) {
+      return res.status(400).json({ error: 'Replied Link is required for Social Media entries.' });
+    }
+
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ error: 'At least one evidence photo is required.' });
     }
