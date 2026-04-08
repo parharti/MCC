@@ -183,6 +183,9 @@ router.post('/', requireAuth, async (req, res) => {
     if (mediaType === 'social_media' && !entryTime) {
       return res.status(400).json({ error: 'Time is required for Social Media entries.' });
     }
+    if (mediaType === 'social_media' && req.user.role === 'district' && (!newsLink || !newsLink.trim())) {
+      return res.status(400).json({ error: 'News Link is required for Social Media entries.' });
+    }
     const prefix = MEDIA_TYPE_PREFIX[mediaType];
     if (!prefix) {
       return res.status(400).json({ error: 'Invalid media type.' });
@@ -809,8 +812,8 @@ router.put('/:id/drop', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Access denied.' });
     }
 
-    if (doc.status !== 'Replied') {
-      return res.status(400).json({ error: 'Only entries with interim reply (Replied status) can be dropped.' });
+    if (doc.status !== 'Pending' && doc.status !== 'Replied') {
+      return res.status(400).json({ error: 'Only pending or replied entries can be dropped.' });
     }
 
     await Entry.findByIdAndUpdate(id, {
@@ -850,6 +853,10 @@ router.put('/:id/final-reply', requireAuth, upload.array('photos', 50), async (r
 
     if (!finalReply || !finalReply.trim()) {
       return res.status(400).json({ error: 'Final reply cannot be empty.' });
+    }
+
+    if (entryMediaType === 'social_media' && user.role === 'district' && (!repliedLink || !repliedLink.trim())) {
+      return res.status(400).json({ error: 'Replied Link is required for Social Media entries.' });
     }
 
     if (!req.files || req.files.length === 0) {

@@ -153,6 +153,7 @@ export default function DailyReport() {
       'Remark': e.remark || '',
       'Immediate Reply': e.immediateReply || '',
       'Final Reply': e.finalReply || '',
+      'Replied Link': e.repliedLink || '',
     }));
 
     const wb = XLSX.utils.book_new();
@@ -315,6 +316,7 @@ export default function DailyReport() {
                   <th>{t.status}</th>
                   {isSocialView && <th>{t.immediateReply}</th>}
                   <th>{t.finalReply}</th>
+                  <th>{t.repliedLink}</th>
                 </tr>
               </thead>
               <tbody>
@@ -335,6 +337,7 @@ export default function DailyReport() {
                     </td>
                     {isSocialView && <td>{entry.immediateReply || '-'}</td>}
                     <td>{entry.finalReply || '-'}</td>
+                    <td>{entry.repliedLink ? <a href={entry.repliedLink} target="_blank" rel="noopener noreferrer" className="link">{t.view}</a> : '-'}</td>
                   </tr>
                 ))}
               </tbody>
