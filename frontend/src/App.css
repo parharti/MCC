@@ -55,6 +55,11 @@ body {
   margin-left: var(--sidebar-w);
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.2s ease;
+}
+
+.sidebar-collapsed ~ .app-main {
+  margin-left: 60px;
 }
 
 .app-content {
@@ -62,6 +67,11 @@ body {
   padding: 24px;
   overflow-x: auto;
   max-width: calc(100vw - var(--sidebar-w));
+  transition: max-width 0.2s ease;
+}
+
+.sidebar-collapsed ~ .app-main .app-content {
+  max-width: calc(100vw - 60px);
 }
 
 /* ========== SIDEBAR ========== */
@@ -76,6 +86,12 @@ body {
   display: flex;
   flex-direction: column;
   z-index: 100;
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+
+.sidebar-collapsed {
+  width: 60px;
 }
 
 .sidebar-brand {
@@ -84,6 +100,11 @@ body {
   gap: 10px;
   padding: 20px 16px;
   border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-collapsed .sidebar-brand {
+  justify-content: center;
+  padding: 16px 8px;
 }
 
 .sidebar-logo {
@@ -108,6 +129,11 @@ body {
   flex-shrink: 0;
 }
 
+.sidebar-collapsed .sidebar-logo-img {
+  width: 36px;
+  height: 36px;
+}
+
 .sidebar-brand-text {
   display: flex;
   flex-direction: column;
@@ -128,10 +154,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  overflow-y: auto;
 }
 
 .sidebar-link {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
   text-align: left;
   background: none;
@@ -142,6 +171,24 @@ body {
   cursor: pointer;
   transition: all 0.15s;
   font-family: inherit;
+  white-space: nowrap;
+}
+
+.sidebar-collapsed .sidebar-link {
+  justify-content: center;
+  padding: 14px 8px;
+}
+
+.sidebar-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.sidebar-text {
+  flex: 1;
+  overflow: hidden;
 }
 
 .sidebar-link:hover {
@@ -165,6 +212,7 @@ body {
 .sidebar-arrow {
   font-size: 10px;
   opacity: 0.6;
+  margin-left: auto;
 }
 
 .sidebar-sub-links {
@@ -174,7 +222,7 @@ body {
 }
 
 .sidebar-sub-link {
-  padding: 10px 20px 10px 38px !important;
+  padding: 10px 20px 10px 50px !important;
   font-size: 13px !important;
   border-left: 2px solid transparent !important;
 }
@@ -182,6 +230,22 @@ body {
 .sidebar-sub-link.active {
   border-left: 2px solid var(--teal-light) !important;
   background: rgba(13,115,119,0.3) !important;
+}
+
+.sidebar-collapse-btn {
+  background: none;
+  border: none;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.5);
+  padding: 12px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color 0.15s;
+}
+
+.sidebar-collapse-btn:hover {
+  color: var(--white);
+  background: rgba(255,255,255,0.05);
 }
 
 .sidebar-footer {

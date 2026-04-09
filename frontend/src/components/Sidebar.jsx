@@ -12,6 +12,7 @@ export default function Sidebar() {
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [cdOpen, setCdOpen] = useState(true);
   const [reportOpen, setReportOpen] = useState(true);
+  const [collapsed, setCollapsed] = useState(false);
 
   const fullPath = location.pathname + location.search;
   const isOnEntries = location.pathname === '/entries';
@@ -20,31 +21,37 @@ export default function Sidebar() {
 
   return (
     <>
-      <aside className="sidebar">
+      <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''}`}>
         <div className="sidebar-brand">
           <img src="/nvd-logo.png" alt="NVD Logo" className="sidebar-logo-img" />
-          <div className="sidebar-brand-text">
-            <span>{t.sidebarBrand}</span>
-            <span className="sidebar-brand-sub">{t.sidebarSub}</span>
-          </div>
+          {!collapsed && (
+            <div className="sidebar-brand-text">
+              <span>{t.sidebarBrand}</span>
+              <span className="sidebar-brand-sub">{t.sidebarSub}</span>
+            </div>
+          )}
         </div>
         <nav className="sidebar-nav">
           <button
             className={`sidebar-link ${location.pathname === '/dashboard' ? 'active' : ''}`}
             onClick={() => navigate('/dashboard')}
+            title={collapsed ? t.dashboard : ''}
           >
-            {t.dashboard}
+            <span className="sidebar-icon">&#9632;</span>
+            {!collapsed && <span className="sidebar-text">{t.dashboard}</span>}
           </button>
 
           {/* All Complaints as parent with expand/collapse */}
           <button
             className={`sidebar-link sidebar-parent ${isOnEntries && !currentMediaType ? 'active' : ''}`}
-            onClick={() => { navigate('/entries'); setCdOpen(prev => !prev); }}
+            onClick={() => { navigate('/entries'); if (!collapsed) setCdOpen(prev => !prev); }}
+            title={collapsed ? t.allComplaints : ''}
           >
-            <span>{t.allComplaints}</span>
-            <span className="sidebar-arrow">{cdOpen ? '\u25BC' : '\u25B6'}</span>
+            <span className="sidebar-icon">&#128196;</span>
+            {!collapsed && <span className="sidebar-text">{t.allComplaints}</span>}
+            {!collapsed && <span className="sidebar-arrow">{cdOpen ? '\u25BC' : '\u25B6'}</span>}
           </button>
-          {cdOpen && (
+          {!collapsed && cdOpen && (
             <div className="sidebar-sub-links">
               <button
                 className={`sidebar-link sidebar-sub-link ${isOnEntries && currentMediaType === 'social_media' ? 'active' : ''}`}
@@ -71,12 +78,14 @@ export default function Sidebar() {
             <>
               <button
                 className={`sidebar-link sidebar-parent ${isOnReport && !currentMediaType ? 'active' : ''}`}
-                onClick={() => { navigate('/report'); setReportOpen(prev => !prev); }}
+                onClick={() => { navigate('/report'); if (!collapsed) setReportOpen(prev => !prev); }}
+                title={collapsed ? t.report : ''}
               >
-                <span>{t.report}</span>
-                <span className="sidebar-arrow">{reportOpen ? '\u25BC' : '\u25B6'}</span>
+                <span className="sidebar-icon">&#128202;</span>
+                {!collapsed && <span className="sidebar-text">{t.report}</span>}
+                {!collapsed && <span className="sidebar-arrow">{reportOpen ? '\u25BC' : '\u25B6'}</span>}
               </button>
-              {reportOpen && (
+              {!collapsed && reportOpen && (
                 <div className="sidebar-sub-links">
                   <button
                     className={`sidebar-link sidebar-sub-link ${isOnReport && currentMediaType === 'social_media' ? 'active' : ''}`}
@@ -104,13 +113,22 @@ export default function Sidebar() {
           <button
             className="sidebar-link"
             onClick={() => setShowChangePwd(true)}
+            title={collapsed ? t.changePassword : ''}
           >
-            {t.changePassword}
+            <span className="sidebar-icon">&#128274;</span>
+            {!collapsed && <span className="sidebar-text">{t.changePassword}</span>}
           </button>
         </nav>
-        <div className="sidebar-footer">
-          Media Tracker Portal
-        </div>
+
+        <button className="sidebar-collapse-btn" onClick={() => setCollapsed(c => !c)}>
+          {collapsed ? '\u25B6' : '\u25C0'}
+        </button>
+
+        {!collapsed && (
+          <div className="sidebar-footer">
+            Media Tracker Portal
+          </div>
+        )}
       </aside>
 
       {showChangePwd && (
