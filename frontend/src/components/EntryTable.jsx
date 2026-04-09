@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { useLang } from '../context/LangContext';
 import ReportView from './ReportView';
 
@@ -65,40 +65,6 @@ function StatusBadge({ status, createdAt, t, showOverdue }) {
     <div className="status-cell">
       <span className={className}>{statusLabel}</span>
       {isOverdue && <span className="badge badge-overdue">{t.overdueLabel} ({hours}h)</span>}
-    </div>
-  );
-}
-
-function AdminActionsMenu({ entry, onEdit, onDelete, onDrop, onReport, t }) {
-  const [open, setOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) setOpen(false);
-    }
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
-
-  return (
-    <div className="admin-actions-menu" ref={menuRef}>
-      <button className="btn btn-sm btn-secondary admin-actions-toggle" onClick={() => setOpen(o => !o)}>
-        ⋮
-      </button>
-      {open && (
-        <div className="admin-actions-dropdown">
-          <button onClick={() => { onEdit(entry); setOpen(false); }}>{t.edit}</button>
-          {(entry.status === 'Pending' || entry.status === 'Replied') && (
-            <button className="action-drop" onClick={() => { onDrop(entry); setOpen(false); }}>{t.drop}</button>
-          )}
-          {entry.status === 'Closed' && (
-            <button onClick={() => { onReport(entry); setOpen(false); }}>{t.report}</button>
-          )}
-          <button className="action-delete" onClick={() => { onDelete(entry.id); setOpen(false); }}>{t.delete}</button>
-        </div>
-      )}
     </div>
   );
 }
@@ -290,21 +256,30 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
                       <span className="btn btn-sm btn-action-dropped">{t.dropped}</span>
                     )}
 
+                    {/* Admin: Drop for pending/replied entries */}
+                    {user.role === 'admin' && (entry.status === 'Pending' || entry.status === 'Replied') && (
+                      <button className="btn btn-sm btn-action-drop"
+                        onClick={() => onDrop(entry)}>{t.drop}</button>
+                    )}
+
                     {/* Admin: Dropped badge */}
                     {user.role === 'admin' && entry.status === 'Dropped' && (
                       <span className="btn btn-sm btn-action-dropped">{t.dropped}</span>
                     )}
 
-                    {/* Admin: Actions dropdown */}
+                    {/* Admin: View Report for closed entries */}
+                    {user.role === 'admin' && entry.status === 'Closed' && (
+                      <button className="btn btn-sm btn-primary"
+                        onClick={() => setReportEntry(entry)}>{t.report}</button>
+                    )}
+
                     {user.role === 'admin' && (
-                      <AdminActionsMenu
-                        entry={entry}
-                        onEdit={onEdit}
-                        onDelete={onDelete}
-                        onDrop={onDrop}
-                        onReport={setReportEntry}
-                        t={t}
-                      />
+                      <>
+                        <button className="btn btn-sm btn-secondary"
+                          onClick={() => onEdit(entry)}>{t.edit}</button>
+                        <button className="btn btn-sm btn-danger"
+                          onClick={() => onDelete(entry.id)}>{t.delete}</button>
+                      </>
                     )}
                   </td>
                 </tr>
