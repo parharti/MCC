@@ -101,14 +101,12 @@ export default function Sidebar() {
             </>
           )}
 
-          {user.role === 'district' && (
-            <button
-              className="sidebar-link"
-              onClick={() => setShowChangePwd(true)}
-            >
-              {t.changePassword}
-            </button>
-          )}
+          <button
+            className="sidebar-link"
+            onClick={() => setShowChangePwd(true)}
+          >
+            {t.changePassword}
+          </button>
         </nav>
         <div className="sidebar-footer">
           Media Tracker Portal
