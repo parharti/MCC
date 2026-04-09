@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [mediaFilter, setMediaFilter] = useState('');
+  const [sortBy, setSortBy] = useState('name');
 
   useEffect(() => {
     function fetchStats() {
@@ -87,10 +88,20 @@ export default function Dashboard() {
   const districtStats = stats?.districtStats || {};
   const mediaTypeStats = stats?.mediaTypeStats || { social_media: { total: 0 }, print_media: { total: 0 }, electronic_media: { total: 0 } };
 
-  // Filter districts by search
-  const filteredDistricts = Object.entries(DISTRICT_NAMES).filter(([id, name]) =>
-    name.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter and sort districts
+  const filteredDistricts = Object.entries(DISTRICT_NAMES)
+    .filter(([id, name]) => name.toLowerCase().includes(search.toLowerCase()))
+    .sort((a, b) => {
+      if (sortBy === 'total') {
+        const getTotal = (id) => {
+          const raw = districtStats[id] || {};
+          if (mediaFilter) return (raw[mediaFilter] || {}).total || 0;
+          return raw.total || 0;
+        };
+        return getTotal(b[0]) - getTotal(a[0]);
+      }
+      return a[1].localeCompare(b[1]);
+    });
 
   function handleDistrictClick(districtId) {
     navigate(`/entries?district=${districtId}`);
@@ -181,6 +192,15 @@ export default function Dashboard() {
                 <option value="social_media">{t.socialMedia}</option>
                 <option value="print_media">{t.printMedia}</option>
                 <option value="electronic_media">{t.electronicMedia}</option>
+              </select>
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className="search-input"
+                style={{ width: 'auto' }}
+              >
+                <option value="name">{t.sortByName}</option>
+                <option value="total">{t.sortByTotal}</option>
               </select>
               <input
                 type="text"
