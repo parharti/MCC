@@ -797,19 +797,19 @@ router.put('/:id/immediate-reply', requireAuth, async (req, res) => {
   }
 });
 
-// PUT /api/entries/:id/drop - drop an entry after interim reply (district or admin)
+// PUT /api/entries/:id/drop - drop an entry (admin only)
 router.put('/:id/drop', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
     const user = req.user;
 
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Only admin can drop entries.' });
+    }
+
     const doc = await Entry.findById(id);
     if (!doc) {
       return res.status(404).json({ error: 'Entry not found.' });
-    }
-
-    if (user.role === 'district' && doc.districtId !== user.districtId) {
-      return res.status(403).json({ error: 'Access denied.' });
     }
 
     if (doc.status !== 'Pending' && doc.status !== 'Replied') {
