@@ -84,7 +84,7 @@ router.get('/me', (req, res) => {
   }
 });
 
-// PUT /api/auth/change-password (district officers only)
+// PUT /api/auth/change-password (district officers and admin)
 router.put('/change-password', async (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -100,10 +100,6 @@ router.put('/change-password', async (req, res) => {
     return res.status(401).json({ error: 'Not authenticated.' });
   }
 
-  if (user.role !== 'district') {
-    return res.status(403).json({ error: 'Only district officers can change password.' });
-  }
-
   const { currentPassword, newPassword } = req.body;
   if (!currentPassword || !newPassword) {
     return res.status(400).json({ error: 'Current and new password are required.' });
@@ -112,8 +108,10 @@ router.put('/change-password', async (req, res) => {
     return res.status(400).json({ error: 'New password must be at least 6 characters.' });
   }
 
+  const userId = user.role === 'admin' ? 'admin' : user.districtId;
+
   try {
-    const doc = await User.findById(user.districtId);
+    const doc = await User.findById(userId);
     if (!doc) return res.status(404).json({ error: 'User not found.' });
 
     const isMatch = await bcrypt.compare(currentPassword, doc.password);
@@ -122,7 +120,7 @@ router.put('/change-password', async (req, res) => {
     }
 
     const hashedNew = await bcrypt.hash(newPassword, 10);
-    await User.findByIdAndUpdate(user.districtId, { password: hashedNew });
+    await User.findByIdAndUpdate(userId, { password: hashedNew });
     res.json({ message: 'Password changed successfully.' });
   } catch (err) {
     console.error('Change password error:', err);
