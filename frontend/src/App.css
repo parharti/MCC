@@ -542,14 +542,14 @@ body {
 /* ========== SUMMARY CARDS ========== */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
 }
 
 .summary-card {
   background: var(--white);
   border-radius: 8px;
-  padding: 20px 16px;
+  padding: 16px 10px;
   text-align: center;
   box-shadow: 0 1px 4px rgba(0,0,0,0.06);
   border-left: 4px solid var(--gray-300);
@@ -573,7 +573,7 @@ body {
 .summary-card.card-overdue { border-left-color: var(--red); }
 
 .summary-number {
-  font-size: 32px;
+  font-size: 28px;
   font-weight: 700;
   color: var(--navy);
   line-height: 1;
@@ -617,8 +617,8 @@ body {
 
 .media-stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
   margin-top: 4px;
 }
 
@@ -1246,8 +1246,9 @@ body {
   .topbar-title { font-size: 14px; }
   .app-content { padding: 16px; }
 
-  .summary-cards { grid-template-columns: repeat(3, 1fr); }
+  .summary-cards { grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .media-type-cards { grid-template-columns: repeat(3, 1fr); }
+  .media-stats-grid { grid-template-columns: repeat(5, 1fr); }
   .form-row { grid-template-columns: 1fr; }
   .signature-line { flex-direction: column; gap: 24px; }
 
