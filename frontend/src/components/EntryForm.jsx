@@ -16,6 +16,7 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
     gist: editEntry?.gist || '',
     sourceOfComplaint: editEntry?.sourceOfComplaint || '',
     mediaType: editEntry?.mediaType || defaultMediaType || 'social_media',
+    category: editEntry?.category || '',
     ...(isEdit && user.role === 'admin' ? {
       immediateReply: editEntry?.immediateReply || '',
       finalReply: editEntry?.finalReply || '',
@@ -153,6 +154,19 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
             <input type="text" name="sourceOfComplaint" value={form.sourceOfComplaint}
               onChange={handleChange} required placeholder={t.sourcePlaceholder} />
           </div>
+
+          {user.role === 'admin' && (
+            <div className="form-group">
+              <label>{t.category}</label>
+              <select name="category" value={form.category} onChange={handleChange}>
+                <option value="">{t.allCategories}</option>
+                <option value="MCC Violation">{t.mccViolation}</option>
+                <option value="Fake News">{t.fakeNews}</option>
+                <option value="Negative News">{t.negativeNews}</option>
+                <option value="Paid News">{t.paidNews}</option>
+              </select>
+            </div>
+          )}
 
           {isEdit && user.role === 'admin' && (
             <>
