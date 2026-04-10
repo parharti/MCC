@@ -219,6 +219,8 @@ export default function Dashboard() {
                   <th>#</th>
                   <th>{t.district}</th>
                   <th>{t.total}</th>
+                  <th>{t.byAdmin}</th>
+                  <th>{t.byDistrict}</th>
                   <th>{t.pending}</th>
                   <th>{t.replied}</th>
                   <th>{t.closed}</th>
@@ -249,6 +251,8 @@ export default function Dashboard() {
                         {hasOverdue && <span className="overdue-dot-inline"></span>}
                       </td>
                       <td className="dt-total">{ds.total}</td>
+                      <td>{raw.addedByAdmin > 0 ? raw.addedByAdmin : '-'}</td>
+                      <td>{raw.addedByDistrict > 0 ? raw.addedByDistrict : '-'}</td>
                       <td className="dt-pending">{ds.pending > 0 ? ds.pending : '-'}</td>
                       <td className="dt-replied">{ds.replied > 0 ? ds.replied : '-'}</td>
                       <td className="dt-closed">{ds.closed > 0 ? ds.closed : '-'}</td>
@@ -267,7 +271,7 @@ export default function Dashboard() {
                 })}
                 {filteredDistricts.length === 0 && (
                   <tr>
-                    <td colSpan="9" className="district-row-empty">
+                    <td colSpan="11" className="district-row-empty">
                       {t.noDistrictFound} "{search}"
                     </td>
                   </tr>
