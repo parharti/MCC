@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LangContext';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 
 const DISTRICT_NAMES = {
   ariyalur: 'Ariyalur',
@@ -107,6 +108,45 @@ export default function Dashboard() {
     navigate(`/entries?district=${districtId}`);
   }
 
+  function downloadDistrictReport() {
+    const rows = filteredDistricts.map(([id, name], idx) => {
+      const raw = districtStats[id] || {};
+      const ds = mediaFilter
+        ? (raw[mediaFilter] || { total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 })
+        : { total: raw.total || 0, pending: raw.pending || 0, replied: raw.replied || 0, closed: raw.closed || 0, dropped: raw.dropped || 0, overdue: raw.overdue || 0 };
+      const pct = ds.total > 0 ? Math.round((ds.closed / ds.total) * 100) : 0;
+      return {
+        '#': idx + 1,
+        [t.district]: name,
+        [t.total]: ds.total,
+        [t.byAdmin || 'By Admin']: raw.addedByAdmin || 0,
+        [t.byDistrict || 'By District']: raw.addedByDistrict || 0,
+        [t.pending]: ds.pending,
+        [t.replied]: ds.replied,
+        [t.closed]: ds.closed,
+        [t.dropped]: ds.dropped,
+        [t.overdue]: ds.overdue,
+        [t.progress]: pct + '%',
+      };
+    });
+
+    // Add totals row
+    const totalsRow = { '#': '', [t.district]: 'TOTAL' };
+    const sumKeys = [t.total, t.byAdmin || 'By Admin', t.byDistrict || 'By District', t.pending, t.replied, t.closed, t.dropped, t.overdue];
+    sumKeys.forEach(key => {
+      totalsRow[key] = rows.reduce((sum, r) => sum + (r[key] || 0), 0);
+    });
+    const totalAll = totalsRow[t.total] || 1;
+    totalsRow[t.progress] = Math.round((totalsRow[t.closed] / totalAll) * 100) + '%';
+    rows.push(totalsRow);
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'District Report');
+    const mediaLabel = mediaFilter ? mediaFilter.replace('_', ' ') : 'All';
+    XLSX.writeFile(wb, `District_Report_${mediaLabel}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  }
+
   return (
     <div className="dashboard">
       <h2 className="page-title">
@@ -180,7 +220,12 @@ export default function Dashboard() {
       {user.role === 'admin' && (
         <>
           <div className="district-list-header">
-            <h3 className="section-heading">{t.districtOverview} ({filteredDistricts.length})</h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h3 className="section-heading" style={{ margin: 0 }}>{t.districtOverview} ({filteredDistricts.length})</h3>
+              <button className="btn btn-sm btn-secondary" onClick={downloadDistrictReport}>
+                {t.downloadReport || 'Download Report'}
+              </button>
+            </div>
             <div className="district-search" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
               <select
                 value={mediaFilter}
