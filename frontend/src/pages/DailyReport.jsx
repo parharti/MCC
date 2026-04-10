@@ -149,6 +149,7 @@ export default function DailyReport() {
       'Source of Complaint': e.sourceOfComplaint || '',
       'News Link': e.newsLink || '',
       'Added By': e.addedBy || 'Admin',
+      'Category': e.category || '',
       'Status': e.status,
       'Remark': e.remark || '',
       'Immediate Reply': e.immediateReply || '',
@@ -313,6 +314,7 @@ export default function DailyReport() {
                   <th>{t.gistOfContent}</th>
                   <th>{t.source}</th>
                   <th>{t.addedBy}</th>
+                  <th>{t.category}</th>
                   <th>{t.status}</th>
                   {isSocialView && <th>{t.immediateReply}</th>}
                   <th>{t.finalReply}</th>
@@ -330,6 +332,7 @@ export default function DailyReport() {
                     <td>{entry.gist}</td>
                     <td>{entry.sourceOfComplaint}</td>
                     <td>{entry.addedBy || 'Admin'}</td>
+                    <td>{entry.category || '-'}</td>
                     <td>
                       <span className={`badge badge-${entry.status.toLowerCase()}`}>
                         {entry.status === 'Pending' ? t.pending : entry.status === 'Replied' ? t.replied : entry.status === 'Dropped' ? t.dropped : t.closed}
