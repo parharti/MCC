@@ -80,6 +80,8 @@ router.get('/stats', requireAuth, async (req, res) => {
         if (!districtStats[did]) {
           districtStats[did] = {
             ...emptyMediaStats(),
+            addedByAdmin: 0,
+            addedByDistrict: 0,
             social_media: emptyMediaStats(),
             print_media: emptyMediaStats(),
             electronic_media: emptyMediaStats()
@@ -90,6 +92,11 @@ router.get('/stats', requireAuth, async (req, res) => {
         const mds = ds[mt] || ds.social_media;
 
         ds.total++;
+        if (entry.addedBy === 'Admin') {
+          ds.addedByAdmin++;
+        } else {
+          ds.addedByDistrict++;
+        }
         if (entry.status === 'Pending') ds.pending++;
         else if (entry.status === 'Replied') ds.replied++;
         else if (entry.status === 'Closed') ds.closed++;
