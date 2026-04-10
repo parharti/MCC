@@ -5,6 +5,7 @@ const entrySchema = new mongoose.Schema({
   complaintId: { type: String, required: true },
   mediaType: { type: String, required: true, enum: ['social_media', 'print_media', 'electronic_media'] },
   newsLink: { type: String, default: '' },
+  newsImages: { type: [mongoose.Schema.Types.Mixed], default: [] },
   entryDate: { type: String, required: true },
   entryTime: { type: String, default: '' },
   districtId: { type: String, required: true, index: true },

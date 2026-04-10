@@ -206,7 +206,16 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
                     {entry.newsLink ? (
                       <a href={entry.newsLink} target="_blank" rel="noopener noreferrer"
                         className="link">{t.view}</a>
-                    ) : '-'}
+                    ) : null}
+                    {entry.newsImages && entry.newsImages.length > 0 ? (
+                      <div className="evidence-links">
+                        {entry.newsImages.map((img, i) => (
+                          <a key={i} href={img.url} target="_blank" rel="noopener noreferrer"
+                            className="link">{t.newsImageLabel || 'Image'} {i + 1}</a>
+                        ))}
+                      </div>
+                    ) : null}
+                    {!entry.newsLink && (!entry.newsImages || entry.newsImages.length === 0) && '-'}
                   </td>
                   <td><StatusBadge status={entry.status} createdAt={entry.createdAt} t={t} showOverdue={showOverdue} /></td>
                   {showInterimReply && <td className="cell-reply">{entry.immediateReply || '-'}</td>}
