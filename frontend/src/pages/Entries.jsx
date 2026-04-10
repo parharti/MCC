@@ -73,6 +73,7 @@ export default function Entries() {
   const [constituencyModal, setConstituencyModal] = useState(null);
   const [showExcelUpload, setShowExcelUpload] = useState(false);
   const [statusFilter, setStatusFilter] = useState(statusFromUrl || 'all');
+  const [addedByFilter, setAddedByFilter] = useState('all');
 
   const fetchEntries = useCallback(async () => {
     try {
@@ -187,6 +188,16 @@ export default function Entries() {
             {f === 'all' ? t.total : f === 'Overdue' ? t.overdue : t[f.toLowerCase()]}
           </button>
         ))}
+        <select
+          value={addedByFilter}
+          onChange={e => setAddedByFilter(e.target.value)}
+          className="filter-select"
+          style={{ marginLeft: '12px' }}
+        >
+          <option value="all">{t.allAddedBy}</option>
+          <option value="admin">{t.addedByAdmin}</option>
+          <option value="district">{t.addedByDistrict}</option>
+        </select>
       </div>
 
       {showExcelUpload && (
@@ -227,11 +238,16 @@ export default function Entries() {
       ) : (
         <EntryTable
           entries={entries.filter(e => {
-            if (statusFilter === 'all') return true;
-            if (statusFilter === 'Overdue') {
-              return e.status !== 'Closed' && e.status !== 'Dropped' && (Date.now() - new Date(e.createdAt).getTime()) >= 24 * 60 * 60 * 1000;
+            // Status filter
+            if (statusFilter !== 'all') {
+              if (statusFilter === 'Overdue') {
+                if (!(e.status !== 'Closed' && e.status !== 'Dropped' && (Date.now() - new Date(e.createdAt).getTime()) >= 24 * 60 * 60 * 1000)) return false;
+              } else if (e.status !== statusFilter) return false;
             }
-            return e.status === statusFilter;
+            // Added By filter
+            if (addedByFilter === 'admin' && (e.addedBy || 'Admin') !== 'Admin') return false;
+            if (addedByFilter === 'district' && (e.addedBy || 'Admin') === 'Admin') return false;
+            return true;
           })}
           user={user}
           onDelete={handleDelete}

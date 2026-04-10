@@ -178,7 +178,7 @@ router.get('/stats', requireAuth, async (req, res) => {
 // POST /api/entries - create new entry (admin and district users)
 router.post('/', requireAuth, async (req, res) => {
   try {
-    const { newsLink, entryDate, entryTime, districtId: bodyDistrictId, constituency, gist, sourceOfComplaint, mediaType: reqMediaType } = req.body;
+    const { newsLink, entryDate, entryTime, districtId: bodyDistrictId, constituency, gist, sourceOfComplaint, mediaType: reqMediaType, category: reqCategory } = req.body;
 
     const mediaType = reqMediaType || 'social_media';
 
@@ -220,6 +220,7 @@ router.post('/', requireAuth, async (req, res) => {
       gist,
       sourceOfComplaint,
       addedBy: req.user.role === 'admin' ? 'Admin' : (req.user.districtName || req.user.districtId),
+      category: reqCategory || '',
       status: 'Pending',
       remark: '',
       immediateReply: '',
@@ -495,6 +496,7 @@ router.post('/upload-excel', requireAdmin, upload.single('file'), async (req, re
         gist: mapped.gist,
         sourceOfComplaint: mapped.sourceOfComplaint || '',
         addedBy: 'Admin',
+        category: '',
         status: 'Pending',
         immediateReply: '',
         repliedLink: '',
@@ -614,7 +616,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
     const { newsLink, entryDate, entryTime, districtId, gist, sourceOfComplaint, mediaType,
-            immediateReply, finalReply, repliedLink, remark, status } = req.body;
+            immediateReply, finalReply, repliedLink, remark, status, category } = req.body;
 
     const entry = await Entry.findById(id);
     if (!entry) {
@@ -632,6 +634,7 @@ router.put('/:id', requireAdmin, async (req, res) => {
     if (finalReply !== undefined) updates.finalReply = finalReply;
     if (repliedLink !== undefined) updates.repliedLink = repliedLink;
     if (remark !== undefined) updates.remark = remark;
+    if (category !== undefined) updates.category = category;
     if (status !== undefined && ['Pending', 'Replied', 'Closed', 'Dropped'].includes(status)) updates.status = status;
     if (mediaType !== undefined) {
       const prefix = MEDIA_TYPE_PREFIX[mediaType];
