@@ -925,6 +925,33 @@ router.put('/:id/add-evidence', requireAdmin, upload.array('photos', 50), async 
   }
 });
 
+// PUT /api/entries/:id/news-images - upload news images to Cloudinary
+router.put('/:id/news-images', requireAuth, upload.array('newsImages', 10), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const doc = await Entry.findById(id);
+    if (!doc) {
+      return res.status(404).json({ error: 'Entry not found.' });
+    }
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({ error: 'At least one image is required.' });
+    }
+    const imageUrls = await Promise.all(
+      req.files.map(file => uploadPhoto(file.buffer, file.originalname, `${id}-news`))
+    );
+    const existing = doc.newsImages || [];
+    await Entry.findByIdAndUpdate(id, {
+      newsImages: [...existing, ...imageUrls],
+      updatedAt: new Date().toISOString()
+    });
+    invalidateStatsCache();
+    res.json({ message: 'News images uploaded successfully.', newsImages: [...existing, ...imageUrls] });
+  } catch (err) {
+    console.error('News images upload error:', err);
+    res.status(500).json({ error: 'Failed to upload news images.' });
+  }
+});
+
 // GET /api/entries/backup - download full backup as JSON (admin only)
 router.get('/backup', requireAdmin, async (req, res) => {
   try {

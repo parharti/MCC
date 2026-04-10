@@ -28,6 +28,7 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [newEvidenceFiles, setNewEvidenceFiles] = useState([]);
+  const [newsImageFiles, setNewsImageFiles] = useState([]);
 
   useEffect(() => {
     if (user.role === 'admin') {
@@ -59,20 +60,33 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
 
     setSubmitting(true);
     try {
+      let entryId;
       if (isEdit) {
         await api.put(`/entries/${editEntry.id}`, form);
+        entryId = editEntry.id;
         if (newEvidenceFiles.length > 0) {
           const formData = new FormData();
           for (const file of newEvidenceFiles) {
             formData.append('photos', file);
           }
-          await api.put(`/entries/${editEntry.id}/add-evidence`, formData, {
+          await api.put(`/entries/${entryId}/add-evidence`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
             timeout: 120000,
           });
         }
       } else {
-        await api.post('/entries', form);
+        const res = await api.post('/entries', form);
+        entryId = res.data.id;
+      }
+      if (newsImageFiles.length > 0 && entryId) {
+        const imgForm = new FormData();
+        for (const file of newsImageFiles) {
+          imgForm.append('newsImages', file);
+        }
+        await api.put(`/entries/${entryId}/news-images`, imgForm, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000,
+        });
       }
       onCreated();
     } catch (err) {
@@ -109,6 +123,20 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
                 onChange={handleChange} placeholder="https://..."
                 required={form.mediaType === 'social_media' && user.role === 'district'} />
             </div>
+          </div>
+
+          <div className="form-group">
+            <label>{t.newsImages || 'News Screenshots / Images'}</label>
+            {isEdit && editEntry?.newsImages?.length > 0 && (
+              <p style={{ fontSize: '13px', color: '#666', margin: '4px 0' }}>
+                {t.existing || 'Existing'}: {editEntry.newsImages.length} {t.filesSelected || 'file(s)'}
+              </p>
+            )}
+            <input type="file" multiple accept="image/*"
+              onChange={e => setNewsImageFiles(Array.from(e.target.files))} />
+            {newsImageFiles.length > 0 && (
+              <p className="file-count">{newsImageFiles.length} {t.filesSelected || 'file(s) selected'}</p>
+            )}
           </div>
 
           <div className="form-row">
