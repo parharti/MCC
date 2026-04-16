@@ -58,28 +58,32 @@ export default function DailyReport() {
   const mediaTypeFilter = mediaTypeFromUrl;
 
   useEffect(() => {
-    api.get('/entries')
+    const params = new URLSearchParams();
+    if (mediaTypeFilter) params.set('mediaType', mediaTypeFilter);
+    if (addedByFilter === 'admin') params.set('addedBy', 'admin');
+    else if (addedByFilter === 'district') params.set('addedBy', 'district');
+    if (statusFilter !== 'all') params.set('status', statusFilter);
+    // Send date range to server
+    let dateFrom, dateTo;
+    if (rangeType === 'custom') {
+      dateFrom = customFrom;
+      dateTo = customTo;
+    } else {
+      const rangeDays = RANGE_OPTIONS.find(r => r.value === rangeType)?.days || 1;
+      ({ start: dateFrom, end: dateTo } = getDateRange(selectedDate, rangeDays));
+    }
+    params.set('dateFrom', dateFrom);
+    params.set('dateTo', dateTo);
+    const qs = params.toString();
+    setLoading(true);
+    api.get(`/entries${qs ? '?' + qs : ''}`)
       .then(res => setAllEntries(res.data.entries))
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [mediaTypeFilter, addedByFilter, statusFilter, rangeType, selectedDate, customFrom, customTo]);
 
-  // Filter entries by media type
-  const mediaFiltered = mediaTypeFilter
-    ? allEntries.filter(e => (e.mediaType || 'social_media') === mediaTypeFilter)
-    : allEntries;
-
-  // Filter entries by addedBy
-  const addedByFiltered = addedByFilter === 'all'
-    ? mediaFiltered
-    : addedByFilter === 'admin'
-      ? mediaFiltered.filter(e => (e.addedBy || 'Admin') === 'Admin')
-      : mediaFiltered.filter(e => (e.addedBy || 'Admin') !== 'Admin');
-
-  // Filter entries by status
-  const entries = statusFilter === 'all'
-    ? addedByFiltered
-    : addedByFiltered.filter(e => e.status === statusFilter);
+  // Entries are already filtered server-side by mediaType, addedBy, status, and date range
+  const entries = allEntries;
 
   const isSocialView = !mediaTypeFilter || mediaTypeFilter === 'social_media';
 
@@ -91,7 +95,8 @@ export default function DailyReport() {
     const rangeDays = RANGE_OPTIONS.find(r => r.value === rangeType)?.days || 1;
     ({ start: rangeStart, end: rangeEnd } = getDateRange(selectedDate, rangeDays));
   }
-  const rangeEntries = entries.filter(e => e.entryDate >= rangeStart && e.entryDate <= rangeEnd);
+  // Entries already filtered by date range server-side
+  const rangeEntries = entries;
 
   const rangeLabel = rangeType === 'daily' ? selectedDate
     : rangeType === 'custom' ? `${customFrom} to ${customTo}`
