@@ -10,10 +10,8 @@ const XLSX = require('xlsx');
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
-// Stats cache - avoids reading all entries on every dashboard poll
-let statsCache = { data: null, timestamp: 0 };
-const STATS_CACHE_TTL = 30000; // 30 seconds
-function invalidateStatsCache() { statsCache = { data: null, timestamp: 0 }; }
+// No-op kept for backward compat with calls elsewhere in this file
+function invalidateStatsCache() { }
 
 const MEDIA_TYPE_PREFIX = {
   social_media: 'SM',
@@ -22,7 +20,7 @@ const MEDIA_TYPE_PREFIX = {
 };
 const GLOBAL_COUNTER = 'entries';
 
-// GET /api/entries - get all entries (filtered by district for district users)
+// GET /api/entries - get entries with server-side filtering and pagination
 router.get('/', requireAuth, async (req, res) => {
   try {
     const user = req.user;
@@ -34,16 +32,38 @@ router.get('/', requireAuth, async (req, res) => {
       filter.districtId = req.query.districtId;
     }
 
-    let entries = await Entry.find(filter).lean();
-
-    // Filter by mediaType if specified
-    const mediaTypeFilter = req.query.mediaType;
-    if (mediaTypeFilter) {
-      entries = entries.filter(e => (e.mediaType || 'social_media') === mediaTypeFilter);
+    // Server-side mediaType filter
+    if (req.query.mediaType) {
+      filter.mediaType = req.query.mediaType;
     }
 
-    // Sort by createdAt descending
-    entries.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    // Server-side status filter
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    // Server-side date range filter (for DailyReport)
+    if (req.query.dateFrom || req.query.dateTo) {
+      filter.entryDate = {};
+      if (req.query.dateFrom) filter.entryDate.$gte = req.query.dateFrom;
+      if (req.query.dateTo) filter.entryDate.$lte = req.query.dateTo;
+    }
+
+    // Server-side addedBy filter
+    if (req.query.addedBy === 'admin') {
+      filter.addedBy = 'Admin';
+    } else if (req.query.addedBy === 'district') {
+      filter.addedBy = { $ne: 'Admin' };
+    }
+
+    const page = parseInt(req.query.page) || 0;
+    const limit = parseInt(req.query.limit) || 0; // 0 = no limit (backward compat)
+
+    let query = Entry.find(filter).sort({ createdAt: -1 });
+    if (limit > 0) {
+      query = query.skip(page * limit).limit(limit);
+    }
+    let entries = await query.lean();
 
     // Map _id to id for frontend compatibility
     entries = entries.map(e => ({ id: e._id.toString(), ...e, _id: undefined }));
@@ -55,120 +75,109 @@ router.get('/', requireAuth, async (req, res) => {
   }
 });
 
-// GET /api/entries/stats - dashboard analytics (cached)
+// GET /api/entries/stats - dashboard analytics (MongoDB aggregation - no full collection load)
 router.get('/stats', requireAuth, async (req, res) => {
   try {
     const user = req.user;
-    const cacheNow = Date.now();
+    const overdueThreshold = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
-    let allEntries;
-    if (statsCache.data && (cacheNow - statsCache.timestamp) < STATS_CACHE_TTL) {
-      allEntries = statsCache.data;
-    } else {
-      allEntries = await Entry.find().lean();
-      statsCache = { data: allEntries, timestamp: cacheNow };
-    }
+    const matchStage = user.role === 'admin' ? {} : { districtId: user.districtId };
 
-    const now = new Date();
-    const TWENTY_FOUR_HRS = 24 * 60 * 60 * 1000;
+    const pipeline = [
+      ...(Object.keys(matchStage).length > 0 ? [{ $match: matchStage }] : []),
+      {
+        $addFields: {
+          effectiveMediaType: { $ifNull: ['$mediaType', 'social_media'] },
+          isOverdue: {
+            $and: [
+              { $not: { $in: ['$status', ['Closed', 'Dropped']] } },
+              { $lte: [{ $toDate: '$createdAt' }, overdueThreshold] }
+            ]
+          },
+          isAdmin: { $eq: ['$addedBy', 'Admin'] }
+        }
+      },
+      {
+        $group: {
+          _id: { districtId: '$districtId', mediaType: '$effectiveMediaType' },
+          total: { $sum: 1 },
+          pending: { $sum: { $cond: [{ $eq: ['$status', 'Pending'] }, 1, 0] } },
+          replied: { $sum: { $cond: [{ $eq: ['$status', 'Replied'] }, 1, 0] } },
+          closed: { $sum: { $cond: [{ $eq: ['$status', 'Closed'] }, 1, 0] } },
+          dropped: { $sum: { $cond: [{ $eq: ['$status', 'Dropped'] }, 1, 0] } },
+          overdue: { $sum: { $cond: ['$isOverdue', 1, 0] } },
+          addedByAdmin: { $sum: { $cond: ['$isAdmin', 1, 0] } },
+          addedByDistrict: { $sum: { $cond: ['$isAdmin', 0, 1] } }
+        }
+      }
+    ];
 
-    if (user.role === 'admin') {
-      const emptyMediaStats = () => ({ total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 });
-      const districtStats = {};
-      allEntries.forEach(entry => {
-        const did = entry.districtId;
+    const results = await Entry.aggregate(pipeline);
+
+    const emptyStats = () => ({ total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 });
+    const overall = emptyStats();
+    const districtStats = {};
+    const mediaTypeStats = {
+      social_media: emptyStats(),
+      print_media: emptyStats(),
+      electronic_media: emptyStats()
+    };
+
+    for (const row of results) {
+      const did = row._id.districtId;
+      const mt = row._id.mediaType;
+
+      // Overall totals
+      overall.total += row.total;
+      overall.pending += row.pending;
+      overall.replied += row.replied;
+      overall.closed += row.closed;
+      overall.dropped += row.dropped;
+      overall.overdue += row.overdue;
+
+      // Media type totals
+      if (mediaTypeStats[mt]) {
+        mediaTypeStats[mt].total += row.total;
+        mediaTypeStats[mt].pending += row.pending;
+        mediaTypeStats[mt].replied += row.replied;
+        mediaTypeStats[mt].closed += row.closed;
+        mediaTypeStats[mt].dropped += row.dropped;
+      }
+
+      // District stats (admin only)
+      if (user.role === 'admin') {
         if (!districtStats[did]) {
           districtStats[did] = {
-            ...emptyMediaStats(),
+            ...emptyStats(),
             addedByAdmin: 0,
             addedByDistrict: 0,
-            social_media: emptyMediaStats(),
-            print_media: emptyMediaStats(),
-            electronic_media: emptyMediaStats()
+            social_media: emptyStats(),
+            print_media: emptyStats(),
+            electronic_media: emptyStats()
           };
         }
         const ds = districtStats[did];
-        const mt = entry.mediaType || 'social_media';
-        const mds = ds[mt] || ds.social_media;
+        ds.total += row.total;
+        ds.pending += row.pending;
+        ds.replied += row.replied;
+        ds.closed += row.closed;
+        ds.dropped += row.dropped;
+        ds.overdue += row.overdue;
+        ds.addedByAdmin += row.addedByAdmin;
+        ds.addedByDistrict += row.addedByDistrict;
 
-        ds.total++;
-        if (entry.addedBy === 'Admin') {
-          ds.addedByAdmin++;
-        } else {
-          ds.addedByDistrict++;
+        if (ds[mt]) {
+          ds[mt].total += row.total;
+          ds[mt].pending += row.pending;
+          ds[mt].replied += row.replied;
+          ds[mt].closed += row.closed;
+          ds[mt].dropped += row.dropped;
+          ds[mt].overdue += row.overdue;
         }
-        if (entry.status === 'Pending') ds.pending++;
-        else if (entry.status === 'Replied') ds.replied++;
-        else if (entry.status === 'Closed') ds.closed++;
-        else if (entry.status === 'Dropped') ds.dropped++;
-        if (entry.status !== 'Closed' && entry.status !== 'Dropped' && (now - new Date(entry.createdAt)) >= TWENTY_FOUR_HRS) {
-          ds.overdue++;
-        }
-
-        mds.total++;
-        if (entry.status === 'Pending') mds.pending++;
-        else if (entry.status === 'Replied') mds.replied++;
-        else if (entry.status === 'Closed') mds.closed++;
-        else if (entry.status === 'Dropped') mds.dropped++;
-        if (entry.status !== 'Closed' && entry.status !== 'Dropped' && (now - new Date(entry.createdAt)) >= TWENTY_FOUR_HRS) {
-          mds.overdue++;
-        }
-      });
-
-      const overall = {
-        total: allEntries.length,
-        pending: allEntries.filter(e => e.status === 'Pending').length,
-        replied: allEntries.filter(e => e.status === 'Replied').length,
-        closed: allEntries.filter(e => e.status === 'Closed').length,
-        dropped: allEntries.filter(e => e.status === 'Dropped').length,
-        overdue: allEntries.filter(e => e.status !== 'Closed' && e.status !== 'Dropped' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
-      };
-
-      const mediaTypeStats = {
-        social_media: emptyMediaStats(),
-        print_media: emptyMediaStats(),
-        electronic_media: emptyMediaStats()
-      };
-      allEntries.forEach(entry => {
-        const mt = entry.mediaType || 'social_media';
-        if (mediaTypeStats[mt]) {
-          mediaTypeStats[mt].total++;
-          if (entry.status === 'Pending') mediaTypeStats[mt].pending++;
-          else if (entry.status === 'Replied') mediaTypeStats[mt].replied++;
-          else if (entry.status === 'Closed') mediaTypeStats[mt].closed++;
-          else if (entry.status === 'Dropped') mediaTypeStats[mt].dropped++;
-        }
-      });
-
-      res.json({ overall, districtStats, mediaTypeStats });
-    } else {
-      const myEntries = allEntries.filter(e => e.districtId === user.districtId);
-      const stats = {
-        total: myEntries.length,
-        pending: myEntries.filter(e => e.status === 'Pending').length,
-        replied: myEntries.filter(e => e.status === 'Replied').length,
-        closed: myEntries.filter(e => e.status === 'Closed').length,
-        dropped: myEntries.filter(e => e.status === 'Dropped').length,
-        overdue: myEntries.filter(e => e.status !== 'Closed' && e.status !== 'Dropped' && (now - new Date(e.createdAt)) >= TWENTY_FOUR_HRS).length
-      };
-      const emptyMS = () => ({ total: 0, pending: 0, replied: 0, closed: 0, dropped: 0 });
-      const mediaTypeStats = {
-        social_media: emptyMS(),
-        print_media: emptyMS(),
-        electronic_media: emptyMS()
-      };
-      myEntries.forEach(entry => {
-        const mt = entry.mediaType || 'social_media';
-        if (mediaTypeStats[mt]) {
-          mediaTypeStats[mt].total++;
-          if (entry.status === 'Pending') mediaTypeStats[mt].pending++;
-          else if (entry.status === 'Replied') mediaTypeStats[mt].replied++;
-          else if (entry.status === 'Closed') mediaTypeStats[mt].closed++;
-          else if (entry.status === 'Dropped') mediaTypeStats[mt].dropped++;
-        }
-      });
-      res.json({ overall: stats, districtStats: {}, mediaTypeStats });
+      }
     }
+
+    res.json({ overall, districtStats, mediaTypeStats });
   } catch (err) {
     console.error('Stats error:', err);
     res.status(500).json({ error: 'Failed to fetch stats.' });
@@ -664,26 +673,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 
     await deleteEntryPhotos(id);
     await Entry.findByIdAndDelete(id);
-
-    // Resequence remaining entries
-    const entries = await Entry.find().sort({ createdAt: 1 }).lean();
-
-    if (entries.length > 0) {
-      const bulkOps = entries.map((entry, idx) => {
-        const newSno = idx + 1;
-        const mt = entry.mediaType || 'social_media';
-        const pfx = MEDIA_TYPE_PREFIX[mt] || 'SM';
-        return {
-          updateOne: {
-            filter: { _id: entry._id },
-            update: { $set: { sno: newSno, complaintId: pfx + '-' + String(newSno).padStart(3, '0') } }
-          }
-        };
-      });
-      await Entry.bulkWrite(bulkOps);
-    }
-
-    await Counter.findOneAndUpdate({ _id: GLOBAL_COUNTER }, { count: entries.length }, { upsert: true });
+    // Note: no resequence on delete to save CPU. Use the /resequence endpoint manually if needed.
 
     invalidateStatsCache();
     res.json({ message: 'Entry deleted successfully.' });

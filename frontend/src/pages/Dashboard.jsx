@@ -66,10 +66,7 @@ export default function Dashboard() {
 
     fetchStats();
 
-    // Poll every 30 seconds
-    const interval = setInterval(fetchStats, 30000);
-
-    // Refresh when tab becomes visible again
+    // Only refresh when tab becomes visible again (no polling to save CPU)
     function handleVisibility() {
       if (document.visibilityState === 'visible') {
         fetchStats();
@@ -78,7 +75,6 @@ export default function Dashboard() {
     document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
-      clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibility);
     };
   }, []);

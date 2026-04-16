@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import api from '../services/api';
+import * as XLSX from 'xlsx';
 
 export default function Reports() {
   const [allEntries, setAllEntries] = useState([]);
@@ -24,21 +25,38 @@ export default function Reports() {
   }
 
   function handleDownloadExcel() {
-    api.get('/reports/download-excel', { responseType: 'blob' })
-      .then(res => {
-        const url = window.URL.createObjectURL(new Blob([res.data]));
-        const link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'All_Complaints_Report.xlsx');
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      })
-      .catch(err => {
-        console.error('Excel download failed:', err);
-        alert('Failed to download Excel report.');
-      });
+    if (entries.length === 0) {
+      alert('No entries to export.');
+      return;
+    }
+    const rows = entries.map(e => ({
+      'S.No': e.sno,
+      'Complaint ID': e.complaintId,
+      'Date': e.entryDate,
+      'Time': e.entryTime || '',
+      'Media Type': e.mediaType === 'social_media' ? 'Social Media'
+        : e.mediaType === 'print_media' ? 'Print Media'
+        : e.mediaType === 'electronic_media' ? 'Electronic Media' : e.mediaType,
+      'District': e.districtId,
+      'Constituency': e.constituency || '',
+      'Gist of Content': e.gist,
+      'Source of Complaint': e.sourceOfComplaint || '',
+      'News Link': e.newsLink || '',
+      'Added By': e.addedBy || 'Admin',
+      'Status': e.status,
+      'Remark': e.remark || '',
+      'Immediate Reply': e.immediateReply || '',
+      'Replied Link': e.repliedLink || '',
+      'Final Reply': e.finalReply || '',
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const colWidths = Object.keys(rows[0]).map(key => ({
+      wch: Math.max(key.length, ...rows.slice(0, 100).map(r => String(r[key] || '').length), 10)
+    }));
+    ws['!cols'] = colWidths;
+    XLSX.utils.book_append_sheet(wb, ws, 'All Complaints');
+    XLSX.writeFile(wb, 'All_Complaints_Report.xlsx');
   }
 
   if (loading) return <div className="loading">Loading report data...</div>;
