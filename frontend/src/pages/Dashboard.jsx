@@ -110,19 +110,20 @@ export default function Dashboard() {
       const ds = mediaFilter
         ? (raw[mediaFilter] || { total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 })
         : { total: raw.total || 0, pending: raw.pending || 0, replied: raw.replied || 0, closed: raw.closed || 0, dropped: raw.dropped || 0, overdue: raw.overdue || 0 };
+      const cat = mediaFilter ? (raw[mediaFilter] || {}) : raw;
       const pct = ds.total > 0 ? Math.round((ds.closed / ds.total) * 100) : 0;
       return {
         '#': idx + 1,
         [t.district]: name,
         [t.total]: ds.total,
-        [t.byAdmin || 'By Admin']: raw.addedByAdmin || 0,
-        [t.byDistrict || 'By District']: raw.addedByDistrict || 0,
-        [t.mccViolation || 'MCC Violation']: raw.mccViolation || 0,
-        [t.fakeNews || 'Fake News']: raw.fakeNews || 0,
-        [t.negativeNews || 'Negative News']: raw.negativeNews || 0,
-        [t.paidNews || 'Paid News']: raw.paidNews || 0,
-        [t.misinformation || 'Misinformation']: raw.misinformation || 0,
-        [t.voterAssistance || 'Voter Assistance']: raw.voterAssistance || 0,
+        [t.byAdmin || 'By Admin']: cat.addedByAdmin || 0,
+        [t.byDistrict || 'By District']: cat.addedByDistrict || 0,
+        [t.mccViolation || 'MCC Violation']: cat.mccViolation || 0,
+        [t.fakeNews || 'Fake News']: cat.fakeNews || 0,
+        [t.negativeNews || 'Negative News']: cat.negativeNews || 0,
+        [t.paidNews || 'Paid News']: cat.paidNews || 0,
+        [t.misinformation || 'Misinformation']: cat.misinformation || 0,
+        [t.voterAssistance || 'Voter Assistance']: cat.voterAssistance || 0,
         [t.pending]: ds.pending,
         [t.replied]: ds.replied,
         [t.closed]: ds.closed,
@@ -304,6 +305,8 @@ export default function Dashboard() {
                   const ds = mediaFilter
                     ? (raw[mediaFilter] || { total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 })
                     : { total: raw.total || 0, pending: raw.pending || 0, replied: raw.replied || 0, closed: raw.closed || 0, dropped: raw.dropped || 0, overdue: raw.overdue || 0 };
+                  // Category / addedBy columns also respect the media filter
+                  const cat = mediaFilter ? (raw[mediaFilter] || {}) : raw;
                   const pct = ds.total > 0 ? Math.round((ds.closed / ds.total) * 100) : 0;
                   const hasOverdue = ds.overdue > 0;
 
@@ -319,14 +322,14 @@ export default function Dashboard() {
                         {hasOverdue && <span className="overdue-dot-inline"></span>}
                       </td>
                       <td className="dt-total">{ds.total}</td>
-                      <td>{raw.addedByAdmin > 0 ? raw.addedByAdmin : '-'}</td>
-                      <td>{raw.addedByDistrict > 0 ? raw.addedByDistrict : '-'}</td>
-                      <td>{raw.mccViolation > 0 ? raw.mccViolation : '-'}</td>
-                      <td>{raw.fakeNews > 0 ? raw.fakeNews : '-'}</td>
-                      <td>{raw.negativeNews > 0 ? raw.negativeNews : '-'}</td>
-                      <td>{raw.paidNews > 0 ? raw.paidNews : '-'}</td>
-                      <td>{raw.misinformation > 0 ? raw.misinformation : '-'}</td>
-                      <td>{raw.voterAssistance > 0 ? raw.voterAssistance : '-'}</td>
+                      <td>{cat.addedByAdmin > 0 ? cat.addedByAdmin : '-'}</td>
+                      <td>{cat.addedByDistrict > 0 ? cat.addedByDistrict : '-'}</td>
+                      <td>{cat.mccViolation > 0 ? cat.mccViolation : '-'}</td>
+                      <td>{cat.fakeNews > 0 ? cat.fakeNews : '-'}</td>
+                      <td>{cat.negativeNews > 0 ? cat.negativeNews : '-'}</td>
+                      <td>{cat.paidNews > 0 ? cat.paidNews : '-'}</td>
+                      <td>{cat.misinformation > 0 ? cat.misinformation : '-'}</td>
+                      <td>{cat.voterAssistance > 0 ? cat.voterAssistance : '-'}</td>
                       <td className="dt-pending">{ds.pending > 0 ? ds.pending : '-'}</td>
                       <td className="dt-replied">{ds.replied > 0 ? ds.replied : '-'}</td>
                       <td className="dt-closed">{ds.closed > 0 ? ds.closed : '-'}</td>
