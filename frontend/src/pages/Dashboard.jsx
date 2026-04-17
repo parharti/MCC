@@ -117,6 +117,12 @@ export default function Dashboard() {
         [t.total]: ds.total,
         [t.byAdmin || 'By Admin']: raw.addedByAdmin || 0,
         [t.byDistrict || 'By District']: raw.addedByDistrict || 0,
+        [t.mccViolation || 'MCC Violation']: raw.mccViolation || 0,
+        [t.fakeNews || 'Fake News']: raw.fakeNews || 0,
+        [t.negativeNews || 'Negative News']: raw.negativeNews || 0,
+        [t.paidNews || 'Paid News']: raw.paidNews || 0,
+        [t.misinformation || 'Misinformation']: raw.misinformation || 0,
+        [t.voterAssistance || 'Voter Assistance']: raw.voterAssistance || 0,
         [t.pending]: ds.pending,
         [t.replied]: ds.replied,
         [t.closed]: ds.closed,
@@ -128,7 +134,22 @@ export default function Dashboard() {
 
     // Add totals row
     const totalsRow = { '#': '', [t.district]: 'TOTAL' };
-    const sumKeys = [t.total, t.byAdmin || 'By Admin', t.byDistrict || 'By District', t.pending, t.replied, t.closed, t.dropped, t.overdue];
+    const sumKeys = [
+      t.total,
+      t.byAdmin || 'By Admin',
+      t.byDistrict || 'By District',
+      t.mccViolation || 'MCC Violation',
+      t.fakeNews || 'Fake News',
+      t.negativeNews || 'Negative News',
+      t.paidNews || 'Paid News',
+      t.misinformation || 'Misinformation',
+      t.voterAssistance || 'Voter Assistance',
+      t.pending,
+      t.replied,
+      t.closed,
+      t.dropped,
+      t.overdue,
+    ];
     sumKeys.forEach(key => {
       totalsRow[key] = rows.reduce((sum, r) => sum + (r[key] || 0), 0);
     });
@@ -262,6 +283,12 @@ export default function Dashboard() {
                   <th>{t.total}</th>
                   <th>{t.byAdmin}</th>
                   <th>{t.byDistrict}</th>
+                  <th>{t.mccViolation}</th>
+                  <th>{t.fakeNews}</th>
+                  <th>{t.negativeNews}</th>
+                  <th>{t.paidNews}</th>
+                  <th>{t.misinformation}</th>
+                  <th>{t.voterAssistance}</th>
                   <th>{t.pending}</th>
                   <th>{t.replied}</th>
                   <th>{t.closed}</th>
@@ -294,6 +321,12 @@ export default function Dashboard() {
                       <td className="dt-total">{ds.total}</td>
                       <td>{raw.addedByAdmin > 0 ? raw.addedByAdmin : '-'}</td>
                       <td>{raw.addedByDistrict > 0 ? raw.addedByDistrict : '-'}</td>
+                      <td>{raw.mccViolation > 0 ? raw.mccViolation : '-'}</td>
+                      <td>{raw.fakeNews > 0 ? raw.fakeNews : '-'}</td>
+                      <td>{raw.negativeNews > 0 ? raw.negativeNews : '-'}</td>
+                      <td>{raw.paidNews > 0 ? raw.paidNews : '-'}</td>
+                      <td>{raw.misinformation > 0 ? raw.misinformation : '-'}</td>
+                      <td>{raw.voterAssistance > 0 ? raw.voterAssistance : '-'}</td>
                       <td className="dt-pending">{ds.pending > 0 ? ds.pending : '-'}</td>
                       <td className="dt-replied">{ds.replied > 0 ? ds.replied : '-'}</td>
                       <td className="dt-closed">{ds.closed > 0 ? ds.closed : '-'}</td>
@@ -312,7 +345,7 @@ export default function Dashboard() {
                 })}
                 {filteredDistricts.length === 0 && (
                   <tr>
-                    <td colSpan="11" className="district-row-empty">
+                    <td colSpan="17" className="district-row-empty">
                       {t.noDistrictFound} "{search}"
                     </td>
                   </tr>
