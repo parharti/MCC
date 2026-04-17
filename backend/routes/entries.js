@@ -121,6 +121,12 @@ router.get('/stats', requireAuth, async (req, res) => {
     const results = await Entry.aggregate(pipeline);
 
     const emptyStats = () => ({ total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0 });
+    const emptyMediaStats = () => ({
+      total: 0, pending: 0, replied: 0, closed: 0, dropped: 0, overdue: 0,
+      addedByAdmin: 0, addedByDistrict: 0,
+      mccViolation: 0, fakeNews: 0, negativeNews: 0, paidNews: 0,
+      voterAssistance: 0, misinformation: 0
+    });
     const overall = emptyStats();
     const districtStats = {};
     const mediaTypeStats = {
@@ -163,9 +169,9 @@ router.get('/stats', requireAuth, async (req, res) => {
             paidNews: 0,
             voterAssistance: 0,
             misinformation: 0,
-            social_media: emptyStats(),
-            print_media: emptyStats(),
-            electronic_media: emptyStats()
+            social_media: emptyMediaStats(),
+            print_media: emptyMediaStats(),
+            electronic_media: emptyMediaStats()
           };
         }
         const ds = districtStats[did];
@@ -191,6 +197,14 @@ router.get('/stats', requireAuth, async (req, res) => {
           ds[mt].closed += row.closed;
           ds[mt].dropped += row.dropped;
           ds[mt].overdue += row.overdue;
+          ds[mt].addedByAdmin += row.addedByAdmin;
+          ds[mt].addedByDistrict += row.addedByDistrict;
+          ds[mt].mccViolation += row.mccViolation || 0;
+          ds[mt].fakeNews += row.fakeNews || 0;
+          ds[mt].negativeNews += row.negativeNews || 0;
+          ds[mt].paidNews += row.paidNews || 0;
+          ds[mt].voterAssistance += row.voterAssistance || 0;
+          ds[mt].misinformation += row.misinformation || 0;
         }
       }
     }
