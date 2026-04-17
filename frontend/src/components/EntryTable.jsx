@@ -112,6 +112,10 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
       cmp = new Date(a.entryDate + ' ' + (a.entryTime || '00:00')) - new Date(b.entryDate + ' ' + (b.entryTime || '00:00'));
     } else if (sortField === 'time') {
       cmp = (a.entryTime || '').localeCompare(b.entryTime || '');
+    } else if (sortField === 'addedBy') {
+      cmp = (a.addedBy || 'Admin').localeCompare(b.addedBy || 'Admin');
+    } else if (sortField === 'category') {
+      cmp = (a.category || '').localeCompare(b.category || '');
     }
     return sortOrder === 'asc' ? cmp : -cmp;
   });
@@ -145,8 +149,12 @@ export default function EntryTable({ entries, user, onDelete, onEdit, onReply, o
               {user.role === 'district' && <th>{t.constituency}</th>}
               <th>{t.gistOfContent}</th>
               <th>{t.source}</th>
-              <th>{t.addedBy}</th>
-              <th>{t.category}</th>
+              <th className="th-sortable" onClick={() => handleSort('addedBy')}>
+                {t.addedBy}{sortArrow('addedBy')}
+              </th>
+              <th className="th-sortable" onClick={() => handleSort('category')}>
+                {t.category}{sortArrow('category')}
+              </th>
               <th>{t.newsLink}</th>
               <th>{t.status}</th>
               {showInterimReply && <th>{t.immediateReply}</th>}
