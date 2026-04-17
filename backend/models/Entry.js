@@ -13,7 +13,7 @@ const entrySchema = new mongoose.Schema({
   gist: { type: String, required: true },
   sourceOfComplaint: { type: String, default: '' },
   addedBy: { type: String, default: '' },
-  category: { type: String, default: '', enum: ['', 'MCC Violation', 'Fake News', 'Negative News', 'Paid News'] },
+  category: { type: String, default: '', enum: ['', 'MCC Violation', 'Fake News', 'Negative News', 'Paid News', 'Voter Assistance', 'Misinformation'] },
   status: { type: String, default: 'Pending', enum: ['Pending', 'Replied', 'Closed', 'Dropped'], index: true },
   remark: { type: String, default: '' },
   immediateReply: { type: String, default: '' },

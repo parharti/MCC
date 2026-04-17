@@ -107,7 +107,13 @@ router.get('/stats', requireAuth, async (req, res) => {
           dropped: { $sum: { $cond: [{ $eq: ['$status', 'Dropped'] }, 1, 0] } },
           overdue: { $sum: { $cond: ['$isOverdue', 1, 0] } },
           addedByAdmin: { $sum: { $cond: ['$isAdmin', 1, 0] } },
-          addedByDistrict: { $sum: { $cond: ['$isAdmin', 0, 1] } }
+          addedByDistrict: { $sum: { $cond: ['$isAdmin', 0, 1] } },
+          mccViolation: { $sum: { $cond: [{ $eq: ['$category', 'MCC Violation'] }, 1, 0] } },
+          fakeNews: { $sum: { $cond: [{ $eq: ['$category', 'Fake News'] }, 1, 0] } },
+          negativeNews: { $sum: { $cond: [{ $eq: ['$category', 'Negative News'] }, 1, 0] } },
+          paidNews: { $sum: { $cond: [{ $eq: ['$category', 'Paid News'] }, 1, 0] } },
+          voterAssistance: { $sum: { $cond: [{ $eq: ['$category', 'Voter Assistance'] }, 1, 0] } },
+          misinformation: { $sum: { $cond: [{ $eq: ['$category', 'Misinformation'] }, 1, 0] } }
         }
       }
     ];
@@ -151,6 +157,12 @@ router.get('/stats', requireAuth, async (req, res) => {
             ...emptyStats(),
             addedByAdmin: 0,
             addedByDistrict: 0,
+            mccViolation: 0,
+            fakeNews: 0,
+            negativeNews: 0,
+            paidNews: 0,
+            voterAssistance: 0,
+            misinformation: 0,
             social_media: emptyStats(),
             print_media: emptyStats(),
             electronic_media: emptyStats()
@@ -165,6 +177,12 @@ router.get('/stats', requireAuth, async (req, res) => {
         ds.overdue += row.overdue;
         ds.addedByAdmin += row.addedByAdmin;
         ds.addedByDistrict += row.addedByDistrict;
+        ds.mccViolation += row.mccViolation || 0;
+        ds.fakeNews += row.fakeNews || 0;
+        ds.negativeNews += row.negativeNews || 0;
+        ds.paidNews += row.paidNews || 0;
+        ds.voterAssistance += row.voterAssistance || 0;
+        ds.misinformation += row.misinformation || 0;
 
         if (ds[mt]) {
           ds[mt].total += row.total;
