@@ -192,6 +192,8 @@ export default function EntryForm({ onClose, onCreated, defaultMediaType, editEn
                 <option value="Fake News">{t.fakeNews}</option>
                 <option value="Negative News">{t.negativeNews}</option>
                 <option value="Paid News">{t.paidNews}</option>
+                <option value="Voter Assistance">{t.voterAssistance}</option>
+                <option value="Misinformation">{t.misinformation}</option>
               </select>
             </div>
           )}
