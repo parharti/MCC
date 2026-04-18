@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLang } from '../context/LangContext';
 import api from '../services/api';
@@ -44,6 +44,31 @@ function daysBetween(from, to) {
   return Math.max(1, Math.round((b - a) / (1000 * 60 * 60 * 24)) + 1);
 }
 
+function CountUp({ value, duration = 700, decimals = 0 }) {
+  const target = Number(value) || 0;
+  const [display, setDisplay] = useState(target);
+  const fromRef = useRef(target);
+
+  useEffect(() => {
+    const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) { setDisplay(target); fromRef.current = target; return; }
+    const start = performance.now();
+    const from = fromRef.current;
+    let raf;
+    const tick = (now) => {
+      const p = Math.min(1, (now - start) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(from + (target - from) * eased);
+      if (p < 1) raf = requestAnimationFrame(tick);
+      else fromRef.current = target;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, duration]);
+
+  return <>{decimals ? display.toFixed(decimals) : Math.round(display)}</>;
+}
+
 function PieChart({ data, size = 180 }) {
   const filtered = data.filter(d => d.value > 0);
   const total = filtered.reduce((s, d) => s + d.value, 0);
@@ -66,7 +91,14 @@ function PieChart({ data, size = 180 }) {
     <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
       <svg width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`} className="stat-pie">
         {slices.length === 1 ? (
-          <circle r={r} fill={slices[0].color} stroke="#fff" strokeWidth="1" />
+          <circle
+            r={r}
+            fill={slices[0].color}
+            stroke="#fff"
+            strokeWidth="1"
+            className="stat-pie-slice"
+            style={{ animationDelay: '0ms' }}
+          />
         ) : (
           slices.map((s, i) => {
             const x1 = Math.cos(s.start) * r;
@@ -81,6 +113,8 @@ function PieChart({ data, size = 180 }) {
                 fill={s.color}
                 stroke="#fff"
                 strokeWidth="1"
+                className="stat-pie-slice"
+                style={{ animationDelay: `${i * 90}ms` }}
               />
             );
           })
@@ -235,27 +269,27 @@ export default function StatisticalReport() {
           <h3>Key Metrics Overview</h3>
           <div className="report-summary-grid">
             <div className="rs-item">
-              <span className="rs-num">{overall.total}</span>
+              <span className="rs-num"><CountUp value={overall.total} /></span>
               <span className="rs-label">Total Complaints</span>
             </div>
             <div className="rs-item rs-closed">
-              <span className="rs-num">{actionTaken}</span>
+              <span className="rs-num"><CountUp value={actionTaken} /></span>
               <span className="rs-label">Action Taken ({resolutionRate}%)</span>
             </div>
             <div className="rs-item rs-pending">
-              <span className="rs-num">{overall.pending}</span>
+              <span className="rs-num"><CountUp value={overall.pending} /></span>
               <span className="rs-label">Pending ({pct(overall.pending, overall.total)}%)</span>
             </div>
             <div className="rs-item rs-dropped">
-              <span className="rs-num">{overall.dropped}</span>
+              <span className="rs-num"><CountUp value={overall.dropped} /></span>
               <span className="rs-label">Dropped</span>
             </div>
             <div className="rs-item">
-              <span className="rs-num">{overall.districtCount}</span>
+              <span className="rs-num"><CountUp value={overall.districtCount} /></span>
               <span className="rs-label">Districts</span>
             </div>
             <div className="rs-item">
-              <span className="rs-num">{totalDays}</span>
+              <span className="rs-num"><CountUp value={totalDays} /></span>
               <span className="rs-label">Days Monitored</span>
             </div>
           </div>
@@ -298,11 +332,11 @@ export default function StatisticalReport() {
           <h3>Source of Complaints</h3>
           <div className="report-summary-grid">
             <div className="rs-item">
-              <span className="rs-num">{overall.addedByAdmin}</span>
+              <span className="rs-num"><CountUp value={overall.addedByAdmin} /></span>
               <span className="rs-label">Admin Uploaded ({pct(overall.addedByAdmin, overall.total)}%)</span>
             </div>
             <div className="rs-item">
-              <span className="rs-num">{overall.addedByDistrict}</span>
+              <span className="rs-num"><CountUp value={overall.addedByDistrict} /></span>
               <span className="rs-label">District Uploaded ({pct(overall.addedByDistrict, overall.total)}%)</span>
             </div>
           </div>
@@ -311,12 +345,12 @@ export default function StatisticalReport() {
         <div className="report-summary">
           <h3>Category Highlights</h3>
           <div className="report-summary-grid">
-            <div className="rs-item"><span className="rs-num">{mccTotal}</span><span className="rs-label">MCC Violation ({pct(mccTotal, overall.total)}%)</span></div>
-            <div className="rs-item"><span className="rs-num">{negTotal}</span><span className="rs-label">Negative News ({pct(negTotal, overall.total)}%)</span></div>
-            <div className="rs-item"><span className="rs-num">{fakeTotal}</span><span className="rs-label">Fake News ({pct(fakeTotal, overall.total)}%)</span></div>
-            <div className="rs-item"><span className="rs-num">{paidTotal}</span><span className="rs-label">Paid News ({pct(paidTotal, overall.total)}%)</span></div>
-            <div className="rs-item"><span className="rs-num">{voterTotal}</span><span className="rs-label">Voter Assistance ({pct(voterTotal, overall.total)}%)</span></div>
-            <div className="rs-item"><span className="rs-num">{misinfoTotal}</span><span className="rs-label">Misinformation ({pct(misinfoTotal, overall.total)}%)</span></div>
+            <div className="rs-item"><span className="rs-num"><CountUp value={mccTotal} /></span><span className="rs-label">MCC Violation ({pct(mccTotal, overall.total)}%)</span></div>
+            <div className="rs-item"><span className="rs-num"><CountUp value={negTotal} /></span><span className="rs-label">Negative News ({pct(negTotal, overall.total)}%)</span></div>
+            <div className="rs-item"><span className="rs-num"><CountUp value={fakeTotal} /></span><span className="rs-label">Fake News ({pct(fakeTotal, overall.total)}%)</span></div>
+            <div className="rs-item"><span className="rs-num"><CountUp value={paidTotal} /></span><span className="rs-label">Paid News ({pct(paidTotal, overall.total)}%)</span></div>
+            <div className="rs-item"><span className="rs-num"><CountUp value={voterTotal} /></span><span className="rs-label">Voter Assistance ({pct(voterTotal, overall.total)}%)</span></div>
+            <div className="rs-item"><span className="rs-num"><CountUp value={misinfoTotal} /></span><span className="rs-label">Misinformation ({pct(misinfoTotal, overall.total)}%)</span></div>
           </div>
         </div>
 
@@ -324,19 +358,19 @@ export default function StatisticalReport() {
           <h3>Date-wise Complaint Trend</h3>
           <div className="report-summary-grid">
             <div className="rs-item">
-              <span className="rs-num">{peakDay ? peakDay.total : 0}</span>
+              <span className="rs-num"><CountUp value={peakDay ? peakDay.total : 0} /></span>
               <span className="rs-label">Peak Day{peakDay ? ` — ${peakDay.date}` : ''}</span>
             </div>
             <div className="rs-item">
-              <span className="rs-num">{avgPerDay}</span>
+              <span className="rs-num"><CountUp value={avgPerDay} decimals={1} /></span>
               <span className="rs-label">Avg per Day</span>
             </div>
             <div className="rs-item">
-              <span className="rs-num">{daysWithAction}/{daily.length}</span>
+              <span className="rs-num"><CountUp value={daysWithAction} />/{daily.length}</span>
               <span className="rs-label">Days with Action</span>
             </div>
             <div className="rs-item">
-              <span className="rs-num">{maxPendingAvg}</span>
+              <span className="rs-num"><CountUp value={maxPendingAvg} decimals={1} /></span>
               <span className="rs-label">Avg Pending / Day</span>
             </div>
           </div>
