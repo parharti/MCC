@@ -44,6 +44,63 @@ function daysBetween(from, to) {
   return Math.max(1, Math.round((b - a) / (1000 * 60 * 60 * 24)) + 1);
 }
 
+function PieChart({ data, size = 180 }) {
+  const filtered = data.filter(d => d.value > 0);
+  const total = filtered.reduce((s, d) => s + d.value, 0);
+  const r = size / 2 - 4;
+
+  if (!total) {
+    return <div style={{ fontSize: '13px', color: '#888', padding: '20px 0' }}>No data</div>;
+  }
+
+  let angle = -Math.PI / 2;
+  const slices = filtered.map((d, i) => {
+    const frac = d.value / total;
+    const start = angle;
+    const end = angle + frac * 2 * Math.PI;
+    angle = end;
+    return { ...d, start, end, frac };
+  });
+
+  return (
+    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <svg width={size} height={size} viewBox={`${-size / 2} ${-size / 2} ${size} ${size}`} className="stat-pie">
+        {slices.length === 1 ? (
+          <circle r={r} fill={slices[0].color} stroke="#fff" strokeWidth="1" />
+        ) : (
+          slices.map((s, i) => {
+            const x1 = Math.cos(s.start) * r;
+            const y1 = Math.sin(s.start) * r;
+            const x2 = Math.cos(s.end) * r;
+            const y2 = Math.sin(s.end) * r;
+            const largeArc = s.frac > 0.5 ? 1 : 0;
+            return (
+              <path
+                key={i}
+                d={`M 0 0 L ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                fill={s.color}
+                stroke="#fff"
+                strokeWidth="1"
+              />
+            );
+          })
+        )}
+      </svg>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+        {slices.map((d, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span
+              className="stat-pie-swatch"
+              style={{ width: 10, height: 10, background: d.color, display: 'inline-block', borderRadius: 2 }}
+            />
+            <span>{d.label}: <strong>{d.value}</strong> ({((d.value / total) * 100).toFixed(1)}%)</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function StatisticalReport() {
   const { t } = useLang();
   const [searchParams] = useSearchParams();
@@ -200,6 +257,39 @@ export default function StatisticalReport() {
             <div className="rs-item">
               <span className="rs-num">{totalDays}</span>
               <span className="rs-label">Days Monitored</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="report-summary">
+          <h3>Visual Breakdown</h3>
+          <div className="stat-pie-grid">
+            <div className="stat-pie-card">
+              <h4>Status Distribution</h4>
+              <PieChart data={[
+                { label: 'Closed', value: overall.closed, color: '#10b981' },
+                { label: 'Replied', value: overall.replied, color: '#3b82f6' },
+                { label: 'Pending', value: overall.pending, color: '#f59e0b' },
+                { label: 'Dropped', value: overall.dropped, color: '#64748b' },
+              ]} />
+            </div>
+            <div className="stat-pie-card">
+              <h4>Category Distribution</h4>
+              <PieChart data={[
+                { label: 'MCC Violation', value: mccTotal, color: '#ef4444' },
+                { label: 'Negative News', value: negTotal, color: '#f97316' },
+                { label: 'Fake News', value: fakeTotal, color: '#a855f7' },
+                { label: 'Paid News', value: paidTotal, color: '#06b6d4' },
+                { label: 'Voter Assistance', value: voterTotal, color: '#8b5cf6' },
+                { label: 'Misinformation', value: misinfoTotal, color: '#ec4899' },
+              ]} />
+            </div>
+            <div className="stat-pie-card">
+              <h4>Source of Upload</h4>
+              <PieChart data={[
+                { label: 'Admin', value: overall.addedByAdmin, color: '#1e40af' },
+                { label: 'District', value: overall.addedByDistrict, color: '#14b8a6' },
+              ]} />
             </div>
           </div>
         </div>
