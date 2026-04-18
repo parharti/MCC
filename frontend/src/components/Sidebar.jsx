@@ -17,6 +17,7 @@ export default function Sidebar() {
   const fullPath = location.pathname + location.search;
   const isOnEntries = location.pathname === '/entries';
   const isOnReport = location.pathname === '/report';
+  const isOnStatistical = location.pathname === '/statistical-report';
   const currentMediaType = new URLSearchParams(location.search).get('mediaType');
 
   return (
@@ -107,6 +108,15 @@ export default function Sidebar() {
                   </button>
                 </div>
               )}
+
+              <button
+                className={`sidebar-link ${isOnStatistical ? 'active' : ''}`}
+                onClick={() => navigate('/statistical-report')}
+                title={collapsed ? (t.statisticalReport || 'Statistical Report') : ''}
+              >
+                <span className="sidebar-icon">&#128200;</span>
+                {!collapsed && <span className="sidebar-text">{t.statisticalReport || 'Statistical Report'}</span>}
+              </button>
             </>
           )}
 

@@ -216,6 +216,120 @@ router.get('/stats', requireAuth, async (req, res) => {
   }
 });
 
+// GET /api/entries/statistical-report - aggregated data for the statistical report view (admin only)
+router.get('/statistical-report', requireAdmin, async (req, res) => {
+  try {
+    const match = {};
+    if (req.query.mediaType) match.mediaType = req.query.mediaType;
+    if (req.query.from || req.query.to) {
+      match.entryDate = {};
+      if (req.query.from) match.entryDate.$gte = req.query.from;
+      if (req.query.to) match.entryDate.$lte = req.query.to;
+    }
+
+    const statusSum = (s) => ({ $sum: { $cond: [{ $eq: ['$status', s] }, 1, 0] } });
+    const categorySum = (c) => ({ $sum: { $cond: [{ $eq: ['$category', c] }, 1, 0] } });
+
+    const [overallAgg, categoryAgg, districtAgg, dailyAgg] = await Promise.all([
+      Entry.aggregate([
+        { $match: match },
+        { $group: {
+          _id: null,
+          total: { $sum: 1 },
+          pending: statusSum('Pending'),
+          replied: statusSum('Replied'),
+          closed: statusSum('Closed'),
+          dropped: statusSum('Dropped'),
+          addedByAdmin: { $sum: { $cond: [{ $eq: ['$addedBy', 'Admin'] }, 1, 0] } },
+          addedByDistrict: { $sum: { $cond: [{ $ne: ['$addedBy', 'Admin'] }, 1, 0] } },
+          districts: { $addToSet: '$districtId' }
+        }},
+        { $project: {
+          _id: 0, total: 1, pending: 1, replied: 1, closed: 1, dropped: 1,
+          addedByAdmin: 1, addedByDistrict: 1, districtCount: { $size: '$districts' }
+        }}
+      ]),
+      Entry.aggregate([
+        { $match: match },
+        { $group: {
+          _id: { $ifNull: ['$category', ''] },
+          total: { $sum: 1 },
+          pending: statusSum('Pending'),
+          replied: statusSum('Replied'),
+          closed: statusSum('Closed'),
+          dropped: statusSum('Dropped')
+        }}
+      ]),
+      Entry.aggregate([
+        { $match: match },
+        { $group: {
+          _id: '$districtId',
+          total: { $sum: 1 },
+          pending: statusSum('Pending'),
+          closed: statusSum('Closed'),
+          replied: statusSum('Replied'),
+          dropped: statusSum('Dropped'),
+          mcc: categorySum('MCC Violation'),
+          negative: categorySum('Negative News'),
+          fake: categorySum('Fake News'),
+          paid: categorySum('Paid News'),
+          voter: categorySum('Voter Assistance'),
+          misinfo: categorySum('Misinformation')
+        }},
+        { $sort: { total: -1 } }
+      ]),
+      Entry.aggregate([
+        { $match: match },
+        { $group: {
+          _id: '$entryDate',
+          total: { $sum: 1 },
+          pending: statusSum('Pending'),
+          closed: statusSum('Closed'),
+          replied: statusSum('Replied'),
+          dropped: statusSum('Dropped'),
+          mcc: categorySum('MCC Violation'),
+          negative: categorySum('Negative News')
+        }},
+        { $sort: { _id: 1 } }
+      ])
+    ]);
+
+    const overall = overallAgg[0] || {
+      total: 0, pending: 0, replied: 0, closed: 0, dropped: 0,
+      addedByAdmin: 0, addedByDistrict: 0, districtCount: 0
+    };
+
+    const categories = {};
+    for (const c of categoryAgg) {
+      const key = c._id || 'Uncategorized';
+      categories[key] = {
+        total: c.total, pending: c.pending, replied: c.replied,
+        closed: c.closed, dropped: c.dropped
+      };
+    }
+
+    const districts = districtAgg.map(d => ({
+      districtId: d._id,
+      total: d.total, pending: d.pending, closed: d.closed,
+      replied: d.replied, dropped: d.dropped,
+      mcc: d.mcc, negative: d.negative, fake: d.fake,
+      paid: d.paid, voter: d.voter, misinfo: d.misinfo
+    }));
+
+    const daily = dailyAgg.map(d => ({
+      date: d._id,
+      total: d.total,
+      pending: d.pending, closed: d.closed, replied: d.replied, dropped: d.dropped,
+      mcc: d.mcc, negative: d.negative
+    }));
+
+    res.json({ overall, categories, districts, daily });
+  } catch (err) {
+    console.error('Statistical report error:', err);
+    res.status(500).json({ error: 'Failed to build statistical report.' });
+  }
+});
+
 // POST /api/entries - create new entry (admin and district users)
 router.post('/', requireAuth, async (req, res) => {
   try {

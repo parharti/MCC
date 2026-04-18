@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Entries from './pages/Entries';
 import DailyReport from './pages/DailyReport';
+import StatisticalReport from './pages/StatisticalReport';
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
 
@@ -44,6 +45,9 @@ export default function App() {
             } />
             <Route path="/report" element={
               <ProtectedRoute adminOnly><DailyReport /></ProtectedRoute>
+            } />
+            <Route path="/statistical-report" element={
+              <ProtectedRoute adminOnly><StatisticalReport /></ProtectedRoute>
             } />
             <Route path="*" element={<Navigate to="/dashboard" />} />
           </Routes>
