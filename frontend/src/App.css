@@ -1549,6 +1549,29 @@ body {
 }
 .report-signatures .sig-block p { font-size: 13px; color: #666; margin: 0; }
 
+/* Statistical Report pie charts */
+.stat-pie-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+.stat-pie-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 14px;
+  break-inside: avoid;
+}
+.stat-pie-card h4 {
+  margin: 0 0 10px;
+  font-size: 14px;
+  color: var(--navy, #1a2744);
+}
+.stat-pie path, .stat-pie circle, .stat-pie-swatch {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
 /* Print styles for daily report */
 @media print {
   .no-print { display: none !important; }
