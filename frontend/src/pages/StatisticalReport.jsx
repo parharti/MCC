@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Fragment } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useLang } from '../context/LangContext';
 import api from '../services/api';
@@ -135,6 +135,55 @@ function PieChart({ data, size = 180 }) {
   );
 }
 
+function BarChart({ data, width = 520, height = 280 }) {
+  const padLeft = 130, padRight = 20, padTop = 16, padBottom = 16;
+  const plotW = width - padLeft - padRight;
+  const plotH = height - padTop - padBottom;
+  const max = Math.max(1, ...data.map(d => d.value));
+  const rowH = plotH / Math.max(1, data.length);
+  const barH = Math.min(28, rowH * 0.7);
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      {data.map((d, i) => {
+        const y = padTop + i * rowH + (rowH - barH) / 2;
+        const w = (d.value / max) * plotW;
+        return (
+          <g key={d.label}>
+            <text x={padLeft - 10} y={y + barH / 2 + 4} textAnchor="end"
+              fontSize="12" fill="#333">{d.label}</text>
+            <rect x={padLeft} y={y} width={Math.max(0, w)} height={barH}
+              fill={d.color} rx="3" className="stat-bar" style={{ animationDelay: `${i * 60}ms` }} />
+            {d.value > 0 && (
+              <text x={padLeft + w + 6} y={y + barH / 2 + 4} fontSize="12"
+                fill="#333" fontWeight="600">{d.value}</text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+const CATEGORY_COLORS = {
+  mcc: '#ef4444',
+  negative: '#f97316',
+  fake: '#a855f7',
+  paid: '#06b6d4',
+  voter: '#8b5cf6',
+  misinfo: '#ec4899',
+  uncategorized: '#94a3b8',
+};
+const CATEGORY_LABELS = {
+  mcc: 'MCC Violation',
+  negative: 'Negative News',
+  fake: 'Fake News',
+  paid: 'Paid News',
+  voter: 'Voter Assistance',
+  misinfo: 'Misinformation',
+  uncategorized: 'Uncategorized',
+};
+
 export default function StatisticalReport() {
   const { t } = useLang();
   const [searchParams] = useSearchParams();
@@ -146,6 +195,14 @@ export default function StatisticalReport() {
   const [to, setTo] = useState(today);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [selectedSource, setSelectedSource] = useState(null);
+
+  useEffect(() => {
+    if (!selectedSource) return;
+    const onKey = (e) => { if (e.key === 'Escape') setSelectedSource(null); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedSource]);
 
   useEffect(() => {
     setMediaType(mediaTypeFromUrl);
@@ -166,7 +223,15 @@ export default function StatisticalReport() {
   if (loading) return <div className="loading">Loading statistical report...</div>;
   if (!data) return <div className="loading">No data.</div>;
 
-  const { overall, categories, districts, daily } = data;
+  const { overall, categories, districts, daily, sourceByCategory } = data;
+  const sourceBreakdown = sourceByCategory || { social_media: [], print_media: [], electronic_media: [] };
+  const mediaBlocks = mediaType
+    ? [[mediaType, MEDIA_LABELS[mediaType], sourceBreakdown[mediaType] || []]]
+    : [
+        ['social_media', MEDIA_LABELS.social_media, sourceBreakdown.social_media || []],
+        ['print_media', MEDIA_LABELS.print_media, sourceBreakdown.print_media || []],
+        ['electronic_media', MEDIA_LABELS.electronic_media, sourceBreakdown.electronic_media || []],
+      ];
   const totalDays = daysBetween(from, to);
   const actionTaken = (overall.closed || 0) + (overall.replied || 0);
   const resolutionRate = overall.total ? ((actionTaken / overall.total) * 100).toFixed(0) : 0;
@@ -223,6 +288,24 @@ export default function StatisticalReport() {
       Closed: d.closed, Replied: d.replied, Pending: d.pending, Dropped: d.dropped
     }));
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dayRows), 'Daily Trend');
+
+    mediaBlocks.forEach(([key, label, rows]) => {
+      if (key !== 'social_media') return;
+      if (!rows.length) return;
+      const sheet = rows.map(r => ({
+        Source: r.source,
+        Total: r.total,
+        'MCC Violation': r.mcc,
+        'Negative News': r.negative,
+        'Fake News': r.fake,
+        'Paid News': r.paid,
+        'Voter Assistance': r.voter,
+        'Misinformation': r.misinfo,
+        'Uncategorized': r.uncategorized,
+      }));
+      const sheetName = `Src x Cat - ${label}`.slice(0, 31);
+      XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheet), sheetName);
+    });
 
     XLSX.writeFile(wb, `Statistical_Report_${from}_to_${to}_${mediaLabel.replace(/ /g, '_')}.xlsx`);
   }
@@ -342,6 +425,49 @@ export default function StatisticalReport() {
           </div>
         </div>
 
+        {mediaBlocks.map(([key, label, rows]) => {
+          if (key !== 'social_media') return null;
+          if (!rows.length) return null;
+          const CAT_FIELDS = [
+            ['MCC', 'mcc'], ['Negative', 'negative'], ['Fake', 'fake'],
+            ['Paid', 'paid'], ['Voter Asst.', 'voter'], ['Misinfo', 'misinfo'],
+            ['Uncategorized', 'uncategorized']
+          ];
+          return (
+            <div key={'card-' + key} className="report-summary">
+              <h3>Source Breakdown — {label}</h3>
+              <div className="report-summary-grid">
+                {rows.map((r, i) => (
+                  <div
+                    key={'srccard-' + key + '-' + i}
+                    className="rs-source-card rs-source-card-clickable"
+                    onClick={() => setSelectedSource(r)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSource(r); } }}
+                  >
+                    <div className="rs-source-head">
+                      <span className="rs-source-name">{r.source}</span>
+                      <span className="rs-source-total"><CountUp value={r.total} /></span>
+                    </div>
+                    <div className="rs-source-pct">{pct(r.total, overall.total)}% of total</div>
+                    <div className="rs-source-breakdown">
+                      {CAT_FIELDS.map(([lbl, field]) => (
+                        r[field] > 0 ? (
+                          <Fragment key={field}>
+                            <span>{lbl}</span>
+                            <span>{r[field]}</span>
+                          </Fragment>
+                        ) : null
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+
         <div className="report-summary">
           <h3>Category Highlights</h3>
           <div className="report-summary-grid">
@@ -440,6 +566,48 @@ export default function StatisticalReport() {
           </table>
         </div>
 
+        {mediaBlocks.filter(([key]) => key === 'social_media').map(([key, label, rows]) => (
+          <div key={key} className="report-district-table">
+            <h3>Source of Complaint &times; Category — {label}</h3>
+            {rows.length === 0 ? (
+              <p style={{ fontSize: '13px', color: '#888' }}>No data for this media type.</p>
+            ) : (
+              <table className="report-table-full">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Source</th>
+                    <th>Total</th>
+                    <th>MCC</th>
+                    <th>Negative</th>
+                    <th>Fake</th>
+                    <th>Paid</th>
+                    <th>Voter Asst.</th>
+                    <th>Misinfo</th>
+                    <th>Uncategorized</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.source + i}>
+                      <td>{i + 1}</td>
+                      <td>{r.source}</td>
+                      <td><strong>{r.total}</strong></td>
+                      <td>{r.mcc || '-'}</td>
+                      <td>{r.negative || '-'}</td>
+                      <td>{r.fake || '-'}</td>
+                      <td>{r.paid || '-'}</td>
+                      <td>{r.voter || '-'}</td>
+                      <td>{r.misinfo || '-'}</td>
+                      <td>{r.uncategorized || '-'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ))}
+
         <div className="report-summary">
           <h3>Summary</h3>
           <ol style={{ lineHeight: '1.8', paddingLeft: '20px' }}>
@@ -458,6 +626,32 @@ export default function StatisticalReport() {
             <li>Admin uploaded {overall.addedByAdmin} ({pct(overall.addedByAdmin, overall.total)}%); Districts contributed {overall.addedByDistrict} ({pct(overall.addedByDistrict, overall.total)}%).</li>
           </ol>
         </div>
+
+        {selectedSource && (
+          <div className="source-modal-overlay no-print" onClick={() => setSelectedSource(null)}>
+            <div className="source-modal" onClick={(e) => e.stopPropagation()}>
+              <div className="source-modal-header">
+                <div>
+                  <h3 style={{ margin: 0 }}>{selectedSource.source}</h3>
+                  <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#666' }}>
+                    Total: <strong>{selectedSource.total}</strong>
+                    {' '}({pct(selectedSource.total, overall.total)}% of all complaints)
+                  </p>
+                </div>
+                <button className="source-modal-close" onClick={() => setSelectedSource(null)} aria-label="Close">&times;</button>
+              </div>
+              <div className="source-modal-body">
+                <BarChart
+                  data={Object.keys(CATEGORY_LABELS).map(field => ({
+                    label: CATEGORY_LABELS[field],
+                    value: selectedSource[field] || 0,
+                    color: CATEGORY_COLORS[field],
+                  }))}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="report-signatures">
           <div className="sig-block">

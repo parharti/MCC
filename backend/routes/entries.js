@@ -230,7 +230,7 @@ router.get('/statistical-report', requireAdmin, async (req, res) => {
     const statusSum = (s) => ({ $sum: { $cond: [{ $eq: ['$status', s] }, 1, 0] } });
     const categorySum = (c) => ({ $sum: { $cond: [{ $eq: ['$category', c] }, 1, 0] } });
 
-    const [overallAgg, categoryAgg, districtAgg, dailyAgg] = await Promise.all([
+    const [overallAgg, categoryAgg, districtAgg, dailyAgg, sourceAgg] = await Promise.all([
       Entry.aggregate([
         { $match: match },
         { $group: {
@@ -291,6 +291,28 @@ router.get('/statistical-report', requireAdmin, async (req, res) => {
           negative: categorySum('Negative News')
         }},
         { $sort: { _id: 1 } }
+      ]),
+      Entry.aggregate([
+        { $match: match },
+        { $addFields: {
+          normalizedSource: {
+            $toLower: { $trim: { input: { $ifNull: ['$sourceOfComplaint', ''] } } }
+          },
+          displaySource: { $trim: { input: { $ifNull: ['$sourceOfComplaint', ''] } } }
+        }},
+        { $group: {
+          _id: { mediaType: '$mediaType', source: '$normalizedSource' },
+          displaySource: { $first: '$displaySource' },
+          total: { $sum: 1 },
+          mcc: categorySum('MCC Violation'),
+          negative: categorySum('Negative News'),
+          fake: categorySum('Fake News'),
+          paid: categorySum('Paid News'),
+          voter: categorySum('Voter Assistance'),
+          misinfo: categorySum('Misinformation'),
+          uncategorized: { $sum: { $cond: [{ $in: [{ $ifNull: ['$category', ''] }, ['', null]] }, 1, 0] } }
+        }},
+        { $sort: { total: -1 } }
       ])
     ]);
 
@@ -323,7 +345,60 @@ router.get('/statistical-report', requireAdmin, async (req, res) => {
       mcc: d.mcc, negative: d.negative
     }));
 
-    res.json({ overall, categories, districts, daily });
+    const canonicalizeSocialSource = (raw) => {
+      const s = (raw || '').toLowerCase();
+      if (!s.trim()) return '(unspecified)';
+      if (s.includes('whatsapp') || s.includes('whastapp')) return 'WhatsApp';
+      if (s.includes('facebook') || /\bfb\b/.test(s)) return 'Facebook';
+      if (s.includes('instagram') || /\binsta\b/.test(s)) return 'Instagram';
+      if (s.includes('youtube') || s.includes('you tube')) return 'YouTube';
+      if (s.includes('twitter') || s === 'x' || s.startsWith('x.') || s.includes('(twitter)') || s.includes('x (twitter)')) return 'Twitter / X';
+      if (s.includes('telegram')) return 'Telegram';
+      if (s.includes('social media')) return 'Social Media (other)';
+      return raw && raw.trim() ? raw.trim() : '(unspecified)';
+    };
+
+    const sourceByCategory = { social_media: [], print_media: [], electronic_media: [] };
+    const socialBuckets = new Map();
+
+    for (const s of sourceAgg) {
+      const media = s._id.mediaType;
+      if (!sourceByCategory[media]) continue;
+      const label = s.displaySource && s.displaySource.trim() ? s.displaySource : '(unspecified)';
+
+      if (media === 'social_media') {
+        const key = canonicalizeSocialSource(s.displaySource);
+        const cur = socialBuckets.get(key) || {
+          source: key, total: 0, mcc: 0, negative: 0, fake: 0,
+          paid: 0, voter: 0, misinfo: 0, uncategorized: 0
+        };
+        cur.total += s.total;
+        cur.mcc += s.mcc;
+        cur.negative += s.negative;
+        cur.fake += s.fake;
+        cur.paid += s.paid;
+        cur.voter += s.voter;
+        cur.misinfo += s.misinfo;
+        cur.uncategorized += s.uncategorized;
+        socialBuckets.set(key, cur);
+      } else {
+        sourceByCategory[media].push({
+          source: label,
+          total: s.total,
+          mcc: s.mcc,
+          negative: s.negative,
+          fake: s.fake,
+          paid: s.paid,
+          voter: s.voter,
+          misinfo: s.misinfo,
+          uncategorized: s.uncategorized
+        });
+      }
+    }
+
+    sourceByCategory.social_media = Array.from(socialBuckets.values()).sort((a, b) => b.total - a.total);
+
+    res.json({ overall, categories, districts, daily, sourceByCategory });
   } catch (err) {
     console.error('Statistical report error:', err);
     res.status(500).json({ error: 'Failed to build statistical report.' });
